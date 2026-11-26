@@ -26,16 +26,23 @@ Point at the **amber WAITING 7 MIN** chips and the **ALLERGY** badge on Table 4.
 
 > "Here's a real-sounding note: 'table 4 the lady says she is allergic to peanuts, can we check the satay sauce, also lemon for her water.'"
 
-**Screen:** the review card.
+**Screen:** the "Check before adding" card.
 
 > "Nothing goes on the board yet. I review it first. The allergy is flagged high, and the note says *confirm with the kitchen before serving*. Waiterly never says a dish is safe; the kitchen decides. And 'check the satay sauce' didn't become a bill request. Lemon is a separate task."
 
 *[Fallback]* > "The badge says FALLBACK MODE. There's no AI key on this deployment yet, so a keyword parser is doing this, and it says so. With a key, Claude does it and the same safety checks run on its answer."
 *[AI]* > "That's Claude Haiku reading the note. Code then double-checks every field before I see it."
 
-**Click:** change one task's **table dropdown** to show it's editable, change it back, then click **Add 2 tasks**.
+**Click:** change one task's **table dropdown** to show it's editable, change it back, then click **Confirm 2 tasks**.
 
 > "I can change any table or wording, or remove a task. Now they're on Table 4, and allergies sort to the top."
+
+**Optional (about 40 s, the new features):**
+- **Click:** **Water** on the Table 1 card. *"Simple asks are one tap: no AI, and there's Undo for five seconds."*
+- **Click:** the **mic on the Table 4 card**. First time only: *"Waiterly listens only during a visit you start, never stores audio…"*, then **Start listening**.
+- **Say:** *"two iced teas… actually make one a lemonade… and a Coke no ice. So that's one iced tea, one lemonade, one Coke no ice."* Tap **Stop**.
+- *"It reads the whole conversation and keeps the final version. What changed is listed. If I'd said a different table than the card, it would ask me which one. Nothing is added until I confirm. **Copy for POS** gives one line for the real register."*
+- *[Free tier]* Each visit uses one of the day's 20 Gemini requests. If Google is busy, the card says FALLBACK MODE, and that's worth showing too.
 
 ---
 

@@ -1,0 +1,156 @@
+{
+  "base": "https://waiterly.vercel.app",
+  "ranAt": "2026-11-26T18:16:48.062Z",
+  "requireAi": true,
+  "aiCalls": 1,
+  "passed": 0,
+  "total": 1,
+  "sources": [
+    "fallback"
+  ],
+  "results": [
+    {
+      "name": "Visit: long 3-minute visit with several changes",
+      "expected": "Final state: 1 Coke, 3 waters, wings blue cheese only, crayons, peanut allergy (kitchen), check. No iced tea, no ranch.",
+      "status": 200,
+      "ms": 23447,
+      "pass": false,
+      "fails": [
+        "iced tea -> Coke not applied",
+        "ranch not removed",
+        "late check missing",
+        "fell back instead of using AI (ai_error: AI is unavailable right now. Used the keyword parser instead. Double-check each task. The keyword parser can't follow changes like \"actually a Coke\", so check each task against what was said.)"
+      ],
+      "body": {
+        "source": "fallback",
+        "reason": "ai_error",
+        "notice": "AI is unavailable right now. Used the keyword parser instead. Double-check each task. The keyword parser can't follow changes like \"actually a Coke\", so check each task against what was said.",
+        "tasks": [
+          {
+            "tableOptions": [],
+            "heardTable": null,
+            "tableMessage": "",
+            "table": 4,
+            "tableSource": "card",
+            "tableStatus": "ok",
+            "text": "Refill iced tea",
+            "category": "drinks",
+            "priority": "normal",
+            "flags": [],
+            "note": "",
+            "changes": []
+          },
+          {
+            "tableOptions": [],
+            "heardTable": null,
+            "tableMessage": "",
+            "table": 4,
+            "tableSource": "card",
+            "tableStatus": "ok",
+            "text": "Refill soda",
+            "category": "drinks",
+            "priority": "normal",
+            "flags": [],
+            "note": "",
+            "changes": []
+          },
+          {
+            "tableOptions": [],
+            "heardTable": null,
+            "tableMessage": "",
+            "table": 4,
+            "tableSource": "card",
+            "tableStatus": "ok",
+            "text": "Refill water",
+            "category": "drinks",
+            "priority": "normal",
+            "flags": [],
+            "note": "",
+            "changes": []
+          },
+          {
+            "tableOptions": [],
+            "heardTable": null,
+            "tableMessage": "",
+            "table": 4,
+            "tableSource": "card",
+            "tableStatus": "ok",
+            "text": "Bring 2 waters",
+            "category": "drinks",
+            "priority": "normal",
+            "flags": [],
+            "note": "",
+            "changes": []
+          },
+          {
+            "tableOptions": [],
+            "heardTable": null,
+            "tableMessage": "",
+            "table": 4,
+            "tableSource": "card",
+            "tableStatus": "ok",
+            "text": "Bring ranch",
+            "category": "condiments",
+            "priority": "normal",
+            "flags": [],
+            "note": "",
+            "changes": []
+          },
+          {
+            "tableOptions": [],
+            "heardTable": null,
+            "tableMessage": "",
+            "table": 4,
+            "tableSource": "card",
+            "tableStatus": "ok",
+            "text": "Check check with the food we are in a bit",
+            "category": "food",
+            "priority": "high",
+            "flags": [
+              "allergy"
+            ],
+            "note": "Confirm with kitchen before serving",
+            "changes": []
+          },
+          {
+            "tableOptions": [],
+            "heardTable": null,
+            "tableMessage": "",
+            "table": 4,
+            "tableSource": "card",
+            "tableStatus": "ok",
+            "text": "Bring 3 waters",
+            "category": "drinks",
+            "priority": "normal",
+            "flags": [],
+            "note": "",
+            "changes": []
+          },
+          {
+            "tableOptions": [],
+            "heardTable": null,
+            "tableMessage": "",
+            "table": 4,
+            "tableSource": "card",
+            "tableStatus": "ok",
+            "text": "Confirm peanut allergy with kitchen",
+            "category": "food",
+            "priority": "high",
+            "flags": [
+              "allergy"
+            ],
+            "note": "Confirm with kitchen before serving",
+            "changes": []
+          }
+        ],
+        "changes": [],
+        "mismatches": [],
+        "tableCorrections": [],
+        "needs_clarification": [],
+        "rejected": [],
+        "skipped": [],
+        "trimmed": false
+      }
+    }
+  ]
+}

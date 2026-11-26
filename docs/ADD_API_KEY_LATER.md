@@ -79,7 +79,7 @@ The key is now stored, but **the running site doesn't see it yet**. Vercel only 
    ```
    If it still says `"aiConfigured":false`, the redeploy didn't pick up the key. Check the spelling of the variable name, that **Production** was ticked, and redeploy again.
 2. Open the site in a **private/incognito window**. The badge at the top right should read **AI ONLINE** instead of **FALLBACK MODE**.
-3. On **Service**, tap the **Allergy** scenario chip, then **Organize with AI**. The review card badge should read **AI PARSED**.
+3. On **Service**, tap the **Allergy** scenario chip, then **Organize with AI**. The "Check before adding" card badge should read **AI PARSED**.
 4. On **Floor stats**, click **Write shift summary**. The card should read **AI WRITTEN**, and the "AI summary needs an API key" notice should be gone.
 
 ---

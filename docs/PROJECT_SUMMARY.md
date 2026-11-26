@@ -22,9 +22,10 @@ An allergy question that gets lost or answered casually is a safety risk, not ju
 The server types or dictates one messy note, for example *"table 1 needs two waters and napkins, 4 wants ranch, seven is ready for the check split three ways"*.
 
 1. **The AI organizes it** into short, prioritized tasks per table. Allergies are flagged and sent to the kitchen, sold-out items become "tell the guest" tasks, unclear requests come back as questions, and anything outside the section or not a guest request is rejected.
-2. **The server reviews and approves.** Nothing is added without a tap, and every table and task text can be edited.
-3. **Table cards** sort the work by priority and wait, with an amber "Waiting N min" after 5 minutes. A live tip and **Plan my next trips** group the work into at most 3 trips.
-4. **Floor stats** give the manager KPIs, request charts, a time-stamped safeguard log and a shift summary built from the numbers only.
+2. **Or a table visit by voice.** A mic on each table card (or one at the bottom of the screen) listens to one visit. The AI returns the final state of the conversation, with corrections, cancellations and modifiers, and code enforces the table rules. **Quick-tap buttons** (Water, Check, To-go box…) add simple tasks instantly with Undo.
+3. **The server verifies and confirms.** Nothing from the AI is added without a tap. Every table (section tables only) and every task text can be changed, and guest/read-back mismatches are a choice. **Copy for POS** gives one clean line for the real POS.
+4. **Table cards** put overdue work (5+ minutes, amber "Waiting N min") on top, with the count in the tab title and one vibration on phones. A live tip and **Plan my next trips** group the work into at most 3 trips.
+5. **Floor stats** give the manager KPIs, request charts, a time-stamped safeguard log and a shift summary built from the numbers only.
 
 ## Who it's for and the business value
 
@@ -49,8 +50,8 @@ The server types or dictates one messy note, for example *"table 1 needs two wat
 | **Gemini via `@google/genai`** (alternative) | `gemini-3.8-flash` if only a Google key is available. Same prompts, schemas and validators. |
 | **Deterministic fallbacks** | The app works with no key, during outages and on timeouts, and the spec forbids fake AI output, so the fallback is honest code. |
 | **localStorage** | Each tester gets their own sandbox shift with no accounts and no stored personal data. "Reset shift" restores the sample. |
-| **Vitest** | 91 unit and integration tests, including a fake model that misbehaves on purpose. |
-| **Web Speech API** | Dictation where the browser supports it. The mic button is hidden elsewhere. |
+| **Vitest** | 188 unit and integration tests. They include mocked Gemini replies for every scenario and all 18 visit transcripts, a model that misbehaves on purpose, and a fake speech recognizer. |
+| **Web Speech API** | Table-visit voice mode: continuous with live text, auto-restart, 20 s silence and 10 min cap, text only. Where unsupported, a text box. |
 
 ---
 
@@ -92,7 +93,7 @@ flowchart LR
   GEMINI --> VAL
   FB --> VAL
   VAL -- "draft tasks, trips, summary + source badge" --> UI
-  UI -- "server approves in the review card" --> LS
+  UI -- "server confirms in the verification card" --> LS
 ```
 
 **The key point:** every path, whether Claude, Gemini or fallback, goes through the **same validators** before the browser sees anything, and every task goes through the **server's approval** before it's added.
@@ -120,7 +121,7 @@ cd waiterly
 npm install
 cp .env.example .env     # optional: add ANTHROPIC_API_KEY or GEMINI_API_KEY; leave blank for FALLBACK MODE
 npm run dev              # http://localhost:5173; the /api routes run locally through a Vite dev plugin
-npm test                 # 91 unit + integration tests
+npm test                 # 188 unit + integration tests
 npm run scenarios -- http://localhost:5173   # spec scenarios with automatic PASS/FAIL
 ```
 

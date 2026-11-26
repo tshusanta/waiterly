@@ -11,10 +11,13 @@ How Waiterly uses generative AI: what the models are asked, the exact prompts an
 | Feature | Endpoint | AI's job | What the AI can **not** do |
 |---|---|---|---|
 | Organize a note | `POST /api/parse` | Turn a messy note into short tasks per table, with category, priority and flags. Return questions for unclear requests and rejections for out-of-section or non-guest requests. | Add a task without the server's approval. Assign a table outside the section or one not in the note. Mark anything paid. |
+| Organize a table visit | `POST /api/parse` with `mode: "visit"` | Read a whole guest/server conversation (speech-to-text transcript) and return the **final state**: apply replacements, quantity changes, cancellations, "same for me" and late additions, attach modifiers, treat the read-back as final, ignore small talk and overheard tables, detect spoken and self-corrected tables, and report guest/read-back mismatches and what changed. | Pick a table: the **table rules run in code** (§4.1b). Add anything without the server's confirmation. Mark anything paid. |
 | Plan my next trips | `POST /api/plan` | Group open tasks into at most 3 trips by urgency and station. | Invent tasks. Ids are checked against the real list. |
 | Shift summary | `POST /api/summary` | Write a headline, 2–4 insights and one next step for the manager. | See any task text or guest detail (it gets numbers only). Use a number that isn't in those stats. |
 
-Everything else (wait times, KPIs, charts, the safeguard log, sorting, the live tip) is plain code. The AI is used only where language understanding adds value.
+**Quick-tap buttons** (Water, Check, To-go box, Napkins, Condiment, Clear plates) use no AI and no review: the server tapped exactly what they want, so the task is added at once with a 5-second Undo.
+
+Everything else (wait times, overdue alerts, Copy for POS, KPIs, charts, the safeguard log, sorting, the live tip) is plain code. The AI is used only where language understanding adds value.
 
 ---
 
@@ -597,7 +600,24 @@ Each returned task goes through these checks, in order:
 10. **Duplicates.** Near-duplicates of tasks already open for the same table, or within the same note, are dropped and listed as `skipped`.
 11. **Caps.** At most **15 tasks**, 10 clarifications and 10 rejections. Clarification and rejection text is cleaned and trimmed too.
 
-After validation, the browser shows everything in the **review card**. Nothing is added until the server taps **Add N tasks**, and approved text is cleaned again.
+After validation, the browser shows everything in the **verification card** ("Check before adding"). Nothing is added until the server taps **Confirm N tasks**, and confirmed text is cleaned again.
+
+### 4.1b Table visit (`shared/visit/validate.ts`, `shared/visit/tables.ts`)
+
+Every visit answer, from the AI or the fallback, goes through the same task rules as a note: allergy flag, high priority and kitchen note, the "it's safe" rewrite, 86'd items, complaints and checks high, the payment/comp block, cleanup, dedupe against open tasks, and at most 15 tasks. On top of that:
+
+| Table rule (code, not prompt) | How |
+|---|---|
+| Card tapped, no number spoken → card's table | The code finds spoken tables itself (`spokenTables`: "table 4", "table one", "T7", "table number four"). A table the model names that was never said is ignored. |
+| Number spoken → that table | Only if the code also heard it |
+| Card table ≠ spoken number → ask | Status `conflict` with both tables as buttons: "You started on Table 4 but said table 1. Which one?". One answer resolves every task with the same question. |
+| Self-correction "table 1, sorry, 7" → 7 | Detected in code (sorry / I mean / correction / scratch that, plus "no, table 7"). Not fooled by "no ice" or "sorry, two waters". The original goes in What changed. |
+| No table at all → empty picker | Status `missing`. Confirm stays disabled until a section table is chosen. |
+| Table outside the section → warning | Status `outside`. The dropdown offers section tables only. Pick one or remove the task. |
+
+Mismatches must point at a real task. One that doesn't becomes its own task from the read-back text, so the server still gets the choice. Choosing a version rewrites that task's text, and Confirm stays disabled until every mismatch is chosen. A transcript is capped at the most recent **8,000 characters**, cut at a word boundary, and the user message tells the model the start was trimmed. Visits get a **25 s** AI budget instead of 15 s, because live 15 s calls hit Gemini 504s.
+
+**Speech capture (browser, `src/lib/visitRecorder.ts`):** Web Speech API, continuous with interim results. Ends on Stop, after 20 s of silence or at a 10-minute cap. When Chrome ends recognition on its own, it restarts and keeps appending, and pending interim text is committed first, so nothing is lost. **No audio is recorded or stored.** Only the text transcript is kept, in memory, until it's organized. Where there's no speech recognition, the mic opens a text box.
 
 ### 4.2 Trip plan (`shared/plan.ts` → `validatePlan`)
 - Keep only task ids that exist in the request, **each used once** (across *and* within trips).
@@ -631,7 +651,7 @@ After validation, the browser shows everything in the **review card**. Nothing i
 | Server unreachable from the browser | — | The same shared fallback runs **in the browser**: "Couldn't reach the server…" |
 | Unexpected bug anywhere in the handler, including the fallback | `ai_error` | Safety net: HTTP **200** with a safe empty result ("Nothing was added…"). Never a 500. |
 
-The page header shows **FALLBACK MODE** (from `/api/health` on load, then from each real response), and every review card or trip plan made by the fallback is badged.
+The page header shows **FALLBACK MODE** (from `/api/health` on load, then from each real response), and every verification card or trip plan made by the fallback is badged.
 
 ### Keyword parser (`shared/parse/fallback.ts`)
 1. **Injection check first.** If the note matches "ignore … instructions", "system prompt", "mark … paid or comped", "refund", "void" and so on, the **whole note** is rejected. This is deliberately conservative.
@@ -652,6 +672,8 @@ Sort by urgency (allergy, then complaint, then check, then everything else), the
 Built only from the computed stats. The headline gives requests, completed and average minutes. The insights cover the busiest table (**ties are stated as ties**), the top request type, the longest open wait and a safeguard breakdown that adds up to the total. The action is "Confirm the open allergy check at table N" when one is open, otherwise the longest wait. It passes the same number-honesty check as AI output.
 
 ---
+
+**Visit fallback (`shared/visit/fallback.ts`):** the keyword parser runs over the transcript after self-corrections are applied. The card table is prefixed when no table was spoken. With no table and no card, the tasks get an empty picker. Small-talk "free text" tasks are dropped. It **cannot follow a conversation** ("iced tea, actually a Coke" may produce both drinks), so its notice says: *"The keyword parser can't follow changes like "actually a Coke", so check each task against what was said."*
 
 ## 6. Prompt-injection defence, layer by layer
 

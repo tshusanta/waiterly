@@ -1,20 +1,23 @@
 # Waiterly Test Results
 
-**Status, November 26, 2026:** the live site now runs **real AI: Gemini `gemini-3.8-flash`**, via a `GEMINI_API_KEY` on Google's **free tier**. Real-model results are recorded in **Section 3**:
-- **5 of the 7 AI-routed checks have a real Gemini result, and all 5 pass.**
-- **3 are still PENDING** (Allergy, Unclear table, Shift summary). Every Gemini attempt at those failed on Google's side (503 overload or 504 deadline) before the key hit its **20-requests-per-day** free-tier limit. Each time, the fallback answered correctly.
+**Status, November 26, 2026 (after the final feature update):** the live site runs **Gemini `gemini-3.8-flash` on Google's free tier (20 requests per day)**.
+- **Free-tier rule for this round:** at most **8 real-AI calls**. Everything else is tested against **mocked Gemini replies** that run through the real endpoint, provider code and validators. **7 real calls were used today**, so at least 13 of the 20 are left for the demo recording.
+- **Typed-note scenarios:** 5 real Gemini answers so far, and all 5 pass (Section 3).
+- **Table visits:** all 18 transcripts pass with mocked replies. **Real Gemini has not yet answered a visit.** All 3 live attempts ended in Google 504 `DEADLINE_EXCEEDED`, at 15 s and again at 25 s. The fallback answered each time, and the app said so (Section 7).
+- **UI:** 59/59 headless-Chrome checks at 375 px and 1440 px locally, and 31/31 non-AI checks on the live site.
 
-Every fallback scenario passes, both through HTTP and in unit tests. Nothing in this document claims an AI result that didn't happen.
+Nothing in this document claims an AI result that didn't happen.
 
 | Layer | What | Result |
 |---|---|---|
-| Unit + integration tests | `npm test` (Vitest, 7 files) | **91/91 pass** |
-| Spec scenarios, fallback path, local | `scripts/run-scenarios.mjs` against the dev server | **8/8 pass** |
-| Spec scenarios, fallback path, **live URL** | same script against https://waiterly.vercel.app | **8/8 pass** (Section 1b) |
-| Spec scenarios, **real AI: Gemini**, live URL | `--require-ai` (a fallback counts as FAIL) | **5/5 real results pass. 3 PENDING** (Allergy, Unclear table, Summary). See Section 3. |
-| Spec scenarios, real AI: Claude | same script, with `ANTHROPIC_API_KEY` | **Not run** (no Anthropic key) |
-| No-key and AI-failure behaviour (never a 500, "needs an API key" message) | `tests/api.test.ts`, and live during Google's 503/504/429 errors | Pass |
-| UI checks | Chrome, desktop and 375 px | Pass (see BUILD_LOG Phases 3–5 and the 2026-11-26 UI fixes) |
+| Unit + integration tests | `npm test` (Vitest, 16 files) | **188/188 pass** |
+| Typed-note scenarios, mocked Gemini | `tests/scenarios.mock.test.ts` (same checks as the live runner) | **10/10 pass** + 9 wrong-reply and error cases |
+| **Table-visit transcripts, mocked Gemini** | `tests/visits.mock.test.ts`, 18 transcripts (Section 7.2) | **18/18 pass** + 12 table-rule, limit and fallback cases |
+| Spec scenarios, fallback path, local and live | `scripts/run-scenarios.mjs` | **8/8 pass** (Sections 1, 1b) |
+| Typed-note scenarios, **real Gemini**, live | `--require-ai` | **5/5 real answers pass.** Allergy, Unclear table and Summary: no real answer yet (Section 3 + 7.4) |
+| **Table visits, real Gemini, live** | `--visits --require-ai` | **0 real answers: 3 attempts, all Google 504.** Not verified (Section 7.4) |
+| Real AI: Claude | with `ANTHROPIC_API_KEY` | **Not run** (no key) |
+| UI, headless Chrome, 375 + 1440 px | DevTools-protocol script with a scripted speech recognizer (Section 7.3) | **59/59 local, 31/31 live** (AI steps skipped live to save quota) |
 
 ---
 
@@ -263,3 +266,129 @@ Every bug the tests caught during the build, in order. All are fixed, and each n
 - **Carry-forward is a heuristic.** A clause with no table inherits the last table named, unless it introduces a new party ("the guy by the window"). Bug #10 shows how this can go wrong when a table format isn't recognised. The review card is the backstop: the server sees and can change every table before anything is added.
 - **The rate limit is per serverless instance**, in memory, not global.
 - **Speech input** depends on the browser (Chrome, Edge and Safari support it; Firefox doesn't, so the mic button is hidden there).
+
+---
+
+## 7. Final feature update (2026-11-26): quick taps, table visits, verification, overdue, POS
+
+### 7.1 Real-AI call ledger (free tier: max 8 real calls this round)
+
+| # | Time (UTC) | Request | Gemini calls | Result |
+|---|---|---|---|---|
+| 1 | 17:46 | Allergy (typed note) | 2 (503, then retry) | Fallback. **The retry itself was a bug in the agent's code:** sent with 9 s left, Gemini rejects any deadline under 10 s with 400. Fixed: a retry now happens only if at least 10 s remain. |
+| 2 | 17:46 | Unclear table | 1 | Fallback: Google 504 |
+| 3 | 17:47 | Shift summary | 1 | Fallback: Google 503 |
+| 4 | 18:12 | Visit: ranch vs blue cheese mismatch | 1 | Fallback: Google 504 at the 15 s budget |
+| 5 | 18:12 | Visit: long 3-minute visit | 1 | Fallback: Google 504 at the 15 s budget |
+| 6 | 18:16 | Visit: long 3-minute visit (after raising visits to 25 s) | 1 | Fallback: Google 504 at 25 s |
+| | | **Total** | **7 of 8** | At least 13 of today's 20 are left for the demo. |
+
+Raw output: `docs/test-output/gemini-live-run4.json` (rows 1–3) and `docs/test-output/gemini-live-visits*.json` (rows 4–6). Causes come from the Vercel function logs.
+
+**What this means:** the visit prompt, schema and validators work end to end with correct and deliberately wrong replies (7.2). **Whether `gemini-3.8-flash` can answer a visit inside 25 s on the free tier is still unproven.** Today it never did. See the limitations in 7.5.
+
+### 7.2 Table-visit transcripts: mocked Gemini, real handler and validators: 18/18 PASS
+
+Each transcript goes through `POST /api/parse` with `mode: "visit"`, section 1, 4, 7, and a mocked Gemini reply (a correct answer, written by hand). The checks are the same functions the live runner uses (`scripts/scenario-spec.mjs` `VISITS`). Checks marked **(code)** are enforced by Waiterly's own code whatever the model replies, and §7.2b proves that with wrong replies.
+
+| # | Transcript (start) | Started from | Expected (checked) | Result |
+|---|---|---|---|---|
+| 1 | "hi there what can I get you two waters and a side of ranch… so that is two waters and ranch" | Table 4 card | T4 (card): 2 waters, ranch, no table question | PASS |
+| 2 | "okay so for table one they want two waters and ranch on the side" | bottom mic | T1 (spoken) for both | PASS |
+| 3 | "table 1 needs two waters please" | Table 4 card | **(code)** "You started on Table 4 but said table 1. Which one?" with buttons [4, 1] | PASS |
+| 4 | "table 1, sorry, 7 is ready for the check" | bottom mic | **(code)** T7 check, high, source "corrected"; correction 1 → 7 reported; nothing for T1 | PASS |
+| 5 | "can I get two waters and some extra napkins please" | bottom mic | **(code)** no table: picker empty, status "missing" | PASS |
+| 6 | "table 1 needs two waters and table 7 is ready for the check" | bottom mic | split: T1 waters, T7 check (high) | PASS |
+| 7 | "I will have an iced tea actually make that a Coke okay one Coke" | Table 4 | Coke, no iced tea, change "Iced tea -> Coke" | PASS |
+| 8 | "two waters please actually make it three so three waters" | Table 1 | 3 waters, not 2 | PASS |
+| 9 | "ranch and blue cheese oh never mind the ranch…" | Table 7 | blue cheese only, "Ranch removed" | PASS |
+| 10 | "I will have a lemonade same for me okay two lemonades" | Table 4 | one task: 2 lemonades | PASS |
+| 11 | "a water and a Coke with no ice please… one water one Coke no ice" | Table 1 | "no ice" on the Coke only | PASS |
+| 12 | "two coffees please… oh and can we get the check too" | Table 7 | coffees + **(code)** check high | PASS |
+| 13 | "can I get a side of ranch… so that is a side of blue cheese" | Table 4 | mismatch guest "ranch" vs read-back "blue cheese", linked to a task | PASS |
+| 14 | "a Coke with no ice please okay one Coke" | Table 1 | mismatch: guest "Coke, no ice" vs read-back "Coke" | PASS |
+| 15 | "how is your night going… anyway could we get some more napkins" | Table 4 | exactly one task: napkins | PASS |
+| 16 | "two waters please excuse me can we get our check over here sure two waters" | Table 4 | waters, the overheard check ignored | PASS |
+| 17 | Long visit, 1,079 characters, 14 turns: iced tea → Coke, 2 → 3 waters, ranch removed, peanut allergy question, crayons, small talk, late check | Table 4 | final state only; **(code)** allergy high + "Confirm with kitchen before serving"; check high; all T4 | PASS |
+| 18 | "two iced teas and \| a side of fries…" (recognition restarted at \|) | Table 7 | nothing lost across the restart (the restart itself: 7.2c) | PASS |
+
+Every case also checks that the request carried the visit system prompt, the visit JSON schema, the transcript inside `<transcript>` tags, the starting table, and the 25 s budget.
+
+**7.2b Wrong replies, fixed in code (6 tests):**
+- Model invents table 7 when none was said → card table 4.
+- Model keeps the card table when only "table 1" was said → still asks.
+- Model uses the original "table 1" of a self-correction → 7, with "1 → 7" reported.
+- Bottom mic with no table, model guesses 1 → empty picker.
+- Table 9 → "not in your section" warning, no table set.
+- An allergy "is safe" claim is rewritten, the kitchen note is forced, a "comp" task is rejected, and a mismatch pointing at a task that doesn't exist becomes its own task.
+
+**Limits and fallback (6 tests):**
+- A transcript over 8,000 characters keeps the most recent part and tells the model the start was trimmed.
+- An empty transcript gets a 400 with no AI call.
+- A daily-quota 429 falls back on the card table, with the "can't follow changes" notice.
+- With no table and no card, the fallback gives tasks with an empty picker.
+- The fallback ignores small talk.
+- The fallback applies a spoken self-correction.
+
+**7.2c Speech recorder (`src/lib/visitRecorder.test.ts`, fake recognizer + fake timers, 8 tests):**
+- Continuous + interim results, with a live transcript.
+- **Restart mid-visit:** Chrome ends recognition while "a side of" is still interim. It restarts by itself, and the final transcript is "two waters and a side of ranch please", with nothing lost.
+- 20 s of silence ends the visit, and speech resets the timer.
+- The 10-minute cap ends it even while people keep talking.
+- A blocked mic gives a clear message, and the UI offers typing.
+- "no-speech" restarts instead of ending.
+- It gives up, keeping the text, if recognition keeps dying.
+- The recorder source contains no audio or storage APIs.
+
+**Other new unit tests:**
+- Quick-tap: six buttons, Check high, task shape.
+- Undo removes the task.
+- Table rules: all five, plus the server's choice.
+- Spoken-table detection: digits, words, "T7", corrections. Not fooled by "no ice", "a table for two" or "sorry, two waters".
+- Verification gating: conflict, missing, outside the section, mismatch, and one answer resolving every task with the same question.
+- Overdue: sort order, "(2) Waiterly" title, alert once.
+- Copy for POS line format.
+- Visit prompt: all rules present, transcript wrapped as data, no test transcript reused as an example.
+
+### 7.3 UI checks: headless Chrome at 375 px and 1440 px
+
+The Chrome extension was disconnected, so the agent drove a separate headless Chrome through the DevTools protocol. A **scripted speech recognizer** stood in for the microphone, because headless Chrome has none.
+- **Locally (no key, fallback): 59/59 pass at both widths.**
+- **Live: 31/31 pass**, with the AI steps skipped to save quota.
+
+Checked at each width:
+- No horizontal scroll on Service, Floor stats, How it works, Settings, the toast, the listening bar and the verification card. At 375 px the scroll width is 375.
+- 18 quick buttons (6 per table) at 44 px or more. Card mics at 44 px, and the bottom mic at 56 px.
+- The tab title reads "(3) Waiterly" with the seed shift, and overdue tasks are at the top of every table.
+- Quick tap adds "Bring water" at once with the toast "Added "Bring water" to Table 1 · Undo". Undo removes it. Quick Check is high. The toast is gone after 5 s.
+- The first mic use shows the one-time notice.
+- The listening bar shows "Listening · Table 4", a timer, the live transcript and Stop. The scripted recognizer was ended mid-visit, and the restart kept all the text (2 recognizer sessions).
+- Card Table 4 + "table 1 needs two waters…" asks "You started on Table 4 but said table 1. Which one?". Confirm stays disabled, and **one answer resolves both tasks**. Confirm then adds them to Table 1.
+- Copy for POS copies a line starting "T1:" and shows "Copied".
+- Bottom mic shows "Listening · table not set". With no table said, the picker is empty and Confirm disabled. Picking Table 7 enables it.
+- A typed note opens the same "Check before adding" card.
+- A browser without speech recognition: the card mic opens "Visit · Table 7" with a text box and the note "Voice input isn't supported in this browser…".
+
+Screenshots the agent looked at: Service and the conflict card at 1440 px, the listening bar, the no-table card and the typed visit at 375 px, and How it works at 1440 px. The rest were checked by script only.
+
+**Not tested:** a real microphone, real Chrome speech recognition, a real phone (iPhone Safari, Android Chrome) or `navigator.vibrate` on hardware. Headless Chrome has no microphone. These need a hands-on check by the student.
+
+### 7.4 Real-AI visit attempts
+
+See the 7.1 ledger. Three visit requests, all Google `504 DEADLINE_EXCEEDED`, so no real answer. The fallback output for the long visit shows why the fallback notice matters. It produced generic tasks ("Refill iced tea", "Bring 2 waters" and "Bring 3 waters") instead of the final state, and one oddly worded task. The verification card warns: *"The keyword parser can't follow changes like "actually a Coke", so check each task against what was said."*
+
+**To finish (student, when Google is less loaded, uses about 3 of the daily 20):**
+```
+node scripts/run-scenarios.mjs https://waiterly.vercel.app --visits --parse-only --require-ai --max-ai-calls 3 --delay 7000 --only "Visit: long 3-minute visit with several changes|Visit: ranch vs blue cheese mismatch|Visit: card Table 4, \"table 1\" spoken" --json docs/test-output/gemini-live-visits.json
+```
+
+### 7.5 Failures found and fixed in this round
+
+| # | Found by | Problem | Fix |
+|---|---|---|---|
+| 15 | Live run, server log | The Gemini retry after a 503 was sent with about 9 s left. Gemini rejects deadlines under 10 s with **400**, so the retry could never succeed and wasted a request. | Retry only if at least 10 s remain after the 700 ms pause (`retryTimeoutMs`), with a test |
+| 16 | Live run | Visits hit a **504 at 15 s** | Visits get a 25 s budget (`VISIT_TIMEOUT_MS`, within the 30 s function limit). Still 504 once at 25 s, so this is not proven fixed. |
+| 17 | UI script | Two quick taps on the verification card could act on **stale state**, so the second undid the first | The card uses functional state updates |
+| 18 | UI script | Card visit + a different spoken table asked the same question **once per task** | One answer now resolves every task with the same question (`resolveConflict`) |
+| 19 | Live fallback output | The fallback turned visit small talk ("hi folks welcome to Juniper") into a task, via the typed-note free-text rule | That rule is off for visits, with a test |
+

@@ -419,3 +419,38 @@ A later run found that "table 1 needs two waters" read the quantity as 1, becaus
 **Docs updated:** README, PROJECT_SUMMARY, AI_DESIGN (status, model, request settings, regenerated prompts section), RISKS (risks 4, 7, 8 and limitations), ADD_API_KEY_LATER (current state, quota, `GEMINI_MODEL`), TEST_RESULTS, `.env.example` (`GEMINI_MODEL`), and How it works text in the app.
 
 **To finish (student):** after the quota resets, run `node scripts/run-scenarios.mjs https://waiterly.vercel.app --require-ai --delay 7000 --json docs/test-output/gemini-live-run4.json` and paste the Allergy, Unclear table and Summary results into TEST_RESULTS §3. Consider enabling billing or adding an Anthropic key so the instructor's testing doesn't use up the 20-requests-per-day limit.
+
+## 2026-11-26 (later): free-tier test rule, v1-stable tag, final feature update
+
+**Student requests:**
+1. Use the free Gemini tier only: at most **8 real-AI calls**, mock the rest, and leave quota for the demo recording.
+2. Run the tests, commit, then **tag `v1-stable`** for rollback.
+3. The final feature update: quick taps, table-visit voice mode, AI visit analysis, table rules in code, a verification card, overdue alerts, Copy for POS, docs and tests. No more features after this.
+
+| Item | Who | Notes |
+|---|---|---|
+| Mocked-Gemini scenario suite | Agent | `tests/scenarios.mock.test.ts` mocks only `@google/genai`'s network call. The real handlers, Gemini provider code and validators run. The checks moved to `scripts/scenario-spec.mjs`, shared with the live runner, so a mocked PASS means the same as a live PASS. |
+| AI call cap in the runner | Agent | `--max-ai-calls` defaults to **8 for any non-local URL**. `--only` picks scenarios. `--visits` adds the transcripts. Verified with `--max-ai-calls 0`, which spends nothing. |
+| `v1-stable` | Agent, requested by the student | Tagged on `72ca08d` and pushed. Roll back with `git checkout v1-stable`, or redeploy that commit. |
+| Quick-tap requests | Agent, from the student's spec | `shared/quickTap.ts`. Six 44 px buttons per card. Instant, no AI, no review, 5 s Undo toast (`removeTask`). Check is high. |
+| Table visit voice mode (replaces the old dictation mic) | Agent, from the student's spec | `src/lib/visitRecorder.ts`: continuous + interim. Ends on Stop, 20 s silence or a 10 min cap. Auto-restarts when Chrome ends recognition, committing interim text first so none is lost. Fatal errors (blocked mic) switch to typing. Text only, no audio, nothing stored. Card mic = linked table, bottom mic = no table. Listening bar with table, timer, live transcript and Stop. A one-time notice (the student's wording). A text box where speech is unsupported. |
+| AI analysis of the visit | Agent, from the student's spec | `/api/parse` with `mode: "visit"`. `VISIT_RULES` (7, shown on How it works and in the prompt) plus all 8 note rules. A new strict schema with `table_source`, `changes`, `mismatches` and `table_corrections`. Keeps the most recent 8,000 characters and says when the start was trimmed. Same never-500 safety net. |
+| Table rules in code | Agent, from the student's spec | `shared/visit/tables.ts` (`spokenTables`, `resolveTable`, `chooseTable`) and `shared/visit/validate.ts`. Card / spoken / conflict / missing / outside, all enforced whatever the model says. |
+| Verification card | Agent, from the student's spec | Replaces the review card for visits **and** typed notes. Final tasks first, section-only dropdown, Edit / Remove, What changed, mismatch choice. Confirm is gated (`readiness`) and says what's missing. |
+| Overdue alerts | Agent, from the student's spec | Overdue first per table, "(N) Waiterly" tab title on every view, one `navigator.vibrate` when a task first becomes overdue (not for old tasks on load) |
+| Copy for POS | Agent, from the student's spec | `shared/pos.ts`, on the verification card and allergy tasks, with a "Copied" confirmation |
+| Docs | Agent | How it works (visit rules, table rules, quick taps, overdue, POS, mic privacy), AI_DESIGN (visit prompt and schema generated, plus §4.1b and the visit fallback), RISKS (rows 10–15: consent and recording laws, noise, browser support, no always-on mic, POS as system of record, quick taps), TEST_RESULTS §7, README, PROJECT_SUMMARY |
+
+**Problems and fixes:**
+1. **Retry bug (the agent's code, found in a live run):** after a 503 the server retried with about 9 s left, and Gemini rejects deadlines under 10 s with **400**. A retry now happens only if at least 10 s remain.
+2. **Visits timed out:** live visit calls got **504 at 15 s**. Visits now get 25 s (the function limit is 30 s). One further try at 25 s also got 504, so this is **not proven fixed**.
+3. **UI script findings:** two fast taps on the verification card used stale state, so it now uses functional updates. A card/spoken table conflict asked once per task, so one answer now resolves them all.
+4. **Visit fallback turned small talk into a task.** The free-text rule is now off for transcripts.
+5. **Test-harness issues (not app bugs):** the Chrome extension was disconnected again, so the agent drove headless Chrome over the DevTools protocol with a scripted speech recognizer. Re-navigating to the same `#hash` didn't reload the page, so it now goes through `about:blank`. A shell command that included a profile-folder cleanup was blocked by a safety check. The cleanup was removed, and nothing was deleted.
+
+**Free-tier ledger:** 7 real Gemini calls of the 8 allowed (TEST_RESULTS §7.1), at least 13 left for the demo. **No real Gemini answer was obtained this round**: every call got a Google 503 or 504. Everything else was verified with mocked replies.
+
+**Tests:** 188/188 (up from 111). UI: 59/59 headless checks locally at 375 and 1440 px, 31/31 on the live site.
+
+**Not verified:** real-AI visit analysis, a real microphone or phone, and vibration on hardware. See TEST_RESULTS §7.3–7.4 for the command to finish the real-AI visit check.
+
