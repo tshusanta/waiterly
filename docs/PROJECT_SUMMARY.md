@@ -3,7 +3,7 @@
 **Live:** https://waiterly.vercel.app (public, no sign-in) · **Code:** https://github.com/tshusanta/waiterly
 CIS 3100, Application of Generative AI. "Business AI Innovation Challenge" final project. All data is synthetic.
 
-> **Current mode: FALLBACK MODE.** No AI key is configured yet, so the live app organizes notes with a keyword parser, plans trips with rules, and writes the manager summary from the stats. The FALLBACK MODE badge says so on every page. Adding `ANTHROPIC_API_KEY` (or `GEMINI_API_KEY`) in Vercel switches on the AI with no code change ([ADD_API_KEY_LATER.md](ADD_API_KEY_LATER.md)). Real-model test results are PENDING ([TEST_RESULTS.md](TEST_RESULTS.md) §3).
+> **Current mode: AI ONLINE, using Gemini (`gemini-3.8-flash`, free tier).** Since 2026-11-26 the live app uses real AI: `GEMINI_API_KEY` is set in Vercel. When Gemini is overloaded, slow or past its 20-requests-per-day free limit, the app falls back to its keyword parser, rule-based planner and stats summary. The badge switches to FALLBACK MODE so testers can tell. Real-model results: [TEST_RESULTS.md](TEST_RESULTS.md) §3 (5/5 real answers pass, 3 checks pending).
 
 ---
 
@@ -46,10 +46,10 @@ The server types or dictates one messy note, for example *"table 1 needs two wat
 | **Lucide icons, 1.5 px stroke** | Crisp and consistent. No emojis anywhere. |
 | **Vercel serverless functions** (`/api`) | A public URL for the instructor, and **API keys stay server-side**. Free hosting. |
 | **Claude via `@anthropic-ai/sdk`** | `claude-haiku-5-5` for fast, cheap structured parsing and planning. `claude-sonnet-5-5` for the manager's prose summary. Structured outputs enforce the JSON schema. |
-| **Gemini via `@google/genai`** (alternative) | `gemini-2.5-flash` if only a Google key is available. Same prompts, schemas and validators. |
+| **Gemini via `@google/genai`** (alternative) | `gemini-3.8-flash` if only a Google key is available. Same prompts, schemas and validators. |
 | **Deterministic fallbacks** | The app works with no key, during outages and on timeouts, and the spec forbids fake AI output, so the fallback is honest code. |
 | **localStorage** | Each tester gets their own sandbox shift with no accounts and no stored personal data. "Reset shift" restores the sample. |
-| **Vitest** | 84 unit and integration tests, including a fake model that misbehaves on purpose. |
+| **Vitest** | 91 unit and integration tests, including a fake model that misbehaves on purpose. |
 | **Web Speech API** | Dictation where the browser supports it. The mic button is hidden elsewhere. |
 
 ---
@@ -78,7 +78,7 @@ flowchart LR
   end
 
   CLAUDE["Claude API: Haiku 5.5 / Sonnet 5.5"]
-  GEMINI["Gemini API: 2.5 Flash"]
+  GEMINI["Gemini API: 3.8 Flash"]
 
   UI -- "note + section + open tasks" --> PARSE
   UI -- "open tasks" --> PLAN
@@ -120,7 +120,7 @@ cd waiterly
 npm install
 cp .env.example .env     # optional: add ANTHROPIC_API_KEY or GEMINI_API_KEY; leave blank for FALLBACK MODE
 npm run dev              # http://localhost:5173; the /api routes run locally through a Vite dev plugin
-npm test                 # 84 unit + integration tests
+npm test                 # 91 unit + integration tests
 npm run scenarios -- http://localhost:5173   # spec scenarios with automatic PASS/FAIL
 ```
 

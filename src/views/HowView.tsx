@@ -133,7 +133,7 @@ export function HowView({ aiMode, health, onTryScenario }: Props) {
               <dd>
                 By server setting: <span className="mono">ANTHROPIC_API_KEY</span> uses Claude (
                 <span className="mono">claude-haiku-5-5</span> to parse and plan, <span className="mono">claude-sonnet-5-5</span> for
-                the summary). Otherwise <span className="mono">GEMINI_API_KEY</span> uses <span className="mono">gemini-2.5-flash</span>.
+                the summary). Otherwise <span className="mono">GEMINI_API_KEY</span> uses <span className="mono">gemini-3.8-flash</span> (or <span className="mono">GEMINI_MODEL</span>).
                 With neither, the fallbacks run.
               </dd>
               <dt>Fallbacks</dt>

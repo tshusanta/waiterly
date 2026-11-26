@@ -367,7 +367,7 @@ A later run found that "table 1 needs two waters" read the quantity as 1, becaus
 | Area | Student | AI agent |
 |---|---|---|
 | Product idea, problem, requirements | **Wrote the full spec** (`AGENT_PROMPT.md`): problem, stack, phases, AI rules, safeguards, test scenarios, design rules | Summarized it back for confirmation before starting |
-| Key decisions | Install tools via winget. Continue without an API key. Make the provider swappable, then switchable by env var with Gemini as a second option. **Rename TableTap → Waiterly.** Deploy in FALLBACK MODE now. Use Vercel CLI login. Connect GitHub. | Proposed and explained options. Flagged trade-offs (for example, the Anthropic refusal fallback before using it). Chose implementation details within the spec. |
+| Key decisions | Install tools via winget. Continue without an API key. Make the provider swappable, then switchable by env var with Gemini as a second option. **Rename TableTap → Waiterly.** Deploy in FALLBACK MODE now. Use Vercel CLI login. Connect GitHub. **Add a Gemini key (2026-11-26). Approve switching to `gemini-3.8-flash`** when 2.5 was unavailable. List the UI fixes and the free-text fallback behaviour. | Proposed and explained options. Flagged trade-offs (for example, the Anthropic refusal fallback before using it). Chose implementation details within the spec. |
 | Code | Reviewed status after every phase, and said "continue" or redirected | Wrote all code: React UI, API functions, prompts, validators, fallback parser and planner, stats, tests, scripts |
 | Design | Set the design direction and forbid list (spec §4) | Did the web research for DESIGN_RULES.md. Chose fonts (IBM Plex) and the validated chart colours. Built the CSS. |
 | Testing | Defined the 7 scenario rows and expected results | Wrote 84 automated tests and the scenario runner. Tested in Chrome at desktop and 375 px. Found and fixed 10 bugs (TEST_RESULTS §5). |
@@ -376,3 +376,46 @@ A later run found that "table 1 needs two waters" read the quantity as 1, becaus
 | Docs | Required them in the spec | Wrote all docs in `docs/`, kept the build log every phase |
 
 **What the student should verify personally before submitting:** a private-window click-through on desktop and phone, the GitHub ↔ Vercel connection (optional), and real-AI results if a key is added (TEST_RESULTS §3 is PENDING until then).
+
+---
+
+## 2026-11-26: UI fixes, free-text fallback, real AI live (Gemini)
+
+**Student requests:**
+1. Six UI fixes.
+2. A fallback-parser change.
+3. Redeploy with the `GEMINI_API_KEY` the student added to Vercel (production, sensitive; the agent never saw the value).
+4. Run the real-AI tests and record them.
+5. Update the docs.
+
+| Item | Who | Notes |
+|---|---|---|
+| No "Add 0 tasks" | Agent, requested by the student | When nothing can be added, the review card shows only **Dismiss** |
+| Rejected request and reason on separate lines | Agent, requested by the student | Request in small muted mono on the first line, reason below |
+| Title Case category pills | Agent, requested by the student | `categoryLabel()` in `Badge.tsx` ("drinks" → "Drinks"), used on review rows and table cards |
+| "FALLBACK PARSED" → "FALLBACK MODE" | Agent, requested by the student | Review card badge |
+| Normal font for table headings | Agent, requested by the student | "Table 4" now uses Plex Sans 600 instead of mono |
+| Even table/Completed layout | Agent, requested by the student | Completed is now the last item *in* the table grid: at most 2 even columns, rows stretch to equal height, and Completed spans the row if it would sit alone (`:nth-child(odd)`). A container query makes it 1 column under 560 px. Checked: 3 tables + Completed = an even 2×2, and 375 px stacks with no overflow. |
+| Fallback: clear table + unknown item → task | Agent, requested by the student | `freeTextTask()`: "t1 needs chopped onions" → T1 "Bring chopped onions" (Other), "wants to move to a booth" → "Move to a booth". It carries the note "Written from your words, not a known item. Check it reads right." It still asks when there's no request, and still never guesses a table. +5 tests. |
+| Redeploy + Gemini | Agent | `/api/health` gives `provider: gemini`. The first real call failed (see below). |
+
+**Problems hit with the real AI, and fixes** (verbatim runs in `docs/test-output/gemini-live-2026-11-26.md`)
+1. **`gemini-2.5-flash` returned 404** "no longer available to new users". The error text suggested `gemini-3.8-flash`. The agent **asked the student before acting on it**, because it was an instruction from an API response and the spec named 2.5. With the student's approval the default became `gemini-3.8-flash`, and a `GEMINI_MODEL` override was added. Thinking now uses `thinkingLevel` for 3.x models (`thinkingBudget: 0` only for 2.x).
+2. **First real output:** a single complaint request returned `source: "ai"` with two high-priority complaint tasks for T7. This was the first real model output of the project.
+3. **The scenario script overstated results.** Run 1 printed "10/10 passed", but 6 of those were fallback answers. The agent caught this before recording anything, added `--require-ai` (a fallback counts as FAIL), and reported only `ai` answers.
+4. **Google overload:** 503 "high demand" and 504 deadline errors. Added one quick retry on 503 inside the 15 s budget. 504s can't be helped within the spec's ~15 s fallback limit.
+5. **The agent's mistake:** it set thinking `MINIMAL` to cut latency, and the model rejected it with 400. Reverted to `LOW`, with a unit test.
+6. **Free-tier quota:** `429` "requests per day limit exceeded", **limit 20** for this model. Daily-quota 429s are no longer retried, since a retry wastes a request. The remaining tests have to wait for the reset (about 3 h 45 m).
+7. **Script bug:** `--json` overwrote earlier runs' raw output. It now adds a timestamp. The lost raw JSON is replaced by the verbatim console output.
+
+**Results:** TEST_RESULTS §3.
+- Real Gemini passes: **Dinner rush, Sold-out, Complaint, Prompt injection, Trip plan.** That's 5 of 5 real answers. No answer needed code-level correction, and **no prompt changes were needed**.
+- **PENDING:** Allergy, Unclear table, Shift summary. Gemini never answered these (503/504, then the quota). The fallback handled all three correctly every time.
+
+**Tests:** 91/91 pass (+7: free-text tasks, Gemini model default and override, thinking setting, retry policy).
+
+**Not verified by the agent:** a screenshot of the live AI ONLINE badge, because the Chrome extension disconnected. The badge comes straight from `/api/health`, which reports `aiConfigured: true`.
+
+**Docs updated:** README, PROJECT_SUMMARY, AI_DESIGN (status, model, request settings, regenerated prompts section), RISKS (risks 4, 7, 8 and limitations), ADD_API_KEY_LATER (current state, quota, `GEMINI_MODEL`), TEST_RESULTS, `.env.example` (`GEMINI_MODEL`), and How it works text in the app.
+
+**To finish (student):** after the quota resets, run `node scripts/run-scenarios.mjs https://waiterly.vercel.app --require-ai --delay 7000 --json docs/test-output/gemini-live-run4.json` and paste the Allergy, Unclear table and Summary results into TEST_RESULTS §3. Consider enabling billing or adding an Anthropic key so the instructor's testing doesn't use up the 20-requests-per-day limit.

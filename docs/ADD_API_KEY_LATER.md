@@ -2,15 +2,17 @@
 
 **Live site:** https://waiterly.vercel.app · **Vercel project:** `waiterly` (team `sushant-52c2`) · **Repo:** https://github.com/tshusanta/waiterly
 
-Waiterly is deployed and fully usable **without** a key. It runs in **FALLBACK MODE**: a keyword parser, a rule-based trip planner and a summary written from the stats. Adding a key switches on real AI **with no code change**. You set one environment variable in Vercel and redeploy.
+> **Status (2026-11-26):** `GEMINI_API_KEY` is set in Vercel (production, sensitive), so the live site runs **Gemini `gemini-3.8-flash`**. It's on Google's **free tier: 20 requests per day per model**. Past that, the app uses its fallback until the quota resets at midnight Pacific. To lift the limit, either enable billing on the Google Cloud project behind the key (start from the key's project in Google AI Studio; Google's rate-limits page explains the paid tiers), or add an `ANTHROPIC_API_KEY` (Claude takes priority).
+
+Waiterly works with or without a key. With no key it runs in **FALLBACK MODE**: a keyword parser, a rule-based trip planner and a summary written from the stats. Adding or changing a key switches the AI **with no code change**. You set one environment variable in Vercel and redeploy.
 
 **Which key is used:**
 
 | Set in Vercel | AI used |
 |---|---|
 | `ANTHROPIC_API_KEY` | Claude: `claude-haiku-5-5` parses notes and plans trips, `claude-sonnet-5-5` writes the summary. **Use this one for the graded submission**, since the project spec names Claude. |
-| only `GEMINI_API_KEY` | Gemini: `gemini-2.5-flash` for everything |
-| neither | FALLBACK MODE (current state) |
+| only `GEMINI_API_KEY` | Gemini: `gemini-3.8-flash` for everything **(current state)**. Optional `GEMINI_MODEL` overrides the model. |
+| neither | FALLBACK MODE |
 
 If both are set, Claude wins. The selection logic is in `server/provider.ts`.
 

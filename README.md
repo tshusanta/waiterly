@@ -6,7 +6,11 @@ Built for CIS 3100, Application of Generative AI. All data is synthetic.
 
 **Live demo: https://waiterly.vercel.app**. Open it in any browser, with no sign-in. Each visitor gets their own sample shift.
 
-> **Current mode: FALLBACK MODE (no AI key set yet).** The app is fully usable. Notes are organized by a keyword parser, trips by a rule-based planner, and the manager summary is written from the real stats. The badge at the top right says so. Adding an `ANTHROPIC_API_KEY` (Claude) or `GEMINI_API_KEY` (Gemini) in Vercel switches on the AI with no code change. See [docs/ADD_API_KEY_LATER.md](docs/ADD_API_KEY_LATER.md).
+> **Current mode: AI ONLINE, using Gemini (`gemini-3.8-flash`, Google free tier).** Notes, trip plans and the manager summary are handled by Gemini. Every answer is checked by server-side code, and every task is approved by the server.
+>
+> If Gemini is overloaded, slow (over 15 s) or past its **20-requests-per-day free limit**, the app automatically switches to its built-in fallback (keyword parser, rule-based planner, stats summary). The badge then shows **FALLBACK MODE**, so a tester always sees which one answered.
+>
+> Real-AI test results are in [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md) §3. To change or add a key, see [docs/ADD_API_KEY_LATER.md](docs/ADD_API_KEY_LATER.md).
 
 ## Try it in 30 seconds
 
@@ -22,13 +26,13 @@ Built for CIS 3100, Application of Generative AI. All data is synthetic.
 npm install
 cp .env.example .env   # optional: add ANTHROPIC_API_KEY or GEMINI_API_KEY
 npm run dev            # http://localhost:5173 (the /api routes run locally too)
-npm test               # 84 unit + integration tests
+npm test               # 91 unit + integration tests
 node scripts/run-scenarios.mjs http://localhost:5173   # spec scenarios with PASS/FAIL
 ```
 
 ## Stack
 
-React + Vite + TypeScript, plain CSS, Lucide icons and Vercel serverless functions. AI is chosen by environment variable: Claude via `@anthropic-ai/sdk` (Haiku 5.5 / Sonnet 5.5), else Gemini 2.5 Flash via `@google/genai`, else a deterministic fallback. API keys stay server-side.
+React + Vite + TypeScript, plain CSS, Lucide icons and Vercel serverless functions. AI is chosen by environment variable: Claude via `@anthropic-ai/sdk` (Haiku 5.5 / Sonnet 5.5), else Gemini 3.8 Flash via `@google/genai`, else a deterministic fallback. API keys stay server-side.
 
 ## Docs
 

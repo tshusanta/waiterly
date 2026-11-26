@@ -3,7 +3,16 @@
 // Usage: node scripts/run-scenarios.mjs [baseUrl] [--json out.json]
 // Plain JS so it runs without a build; the notes match shared/scenarios.ts.
 const base = process.argv[2]?.startsWith('http') ? process.argv[2] : 'http://localhost:5173'
-const jsonOut = process.argv.includes('--json') ? process.argv[process.argv.indexOf('--json') + 1] : null
+const argValue = (flag) => (process.argv.includes(flag) ? process.argv[process.argv.indexOf(flag) + 1] : null)
+const jsonOut = argValue('--json')
+// Pause between requests (ms), so a free-tier AI rate limit doesn't turn into fallbacks.
+const delayMs = Number(argValue('--delay') ?? 0)
+// --require-ai: a fallback answer counts as FAIL (use when testing the real model).
+const requireAi = process.argv.includes('--require-ai')
+const aiCheck = (b, f, status) => {
+  if (requireAi && status === 200 && b.source !== 'ai') f.push(`fell back instead of using AI (${b.reason ?? 'unknown'}: ${b.notice ?? ''})`)
+}
+const pause = () => new Promise((r) => setTimeout(r, delayMs))
 const ALLERGY_NOTE = 'Confirm with kitchen before serving'
 
 const has = (cond, msg, fails) => { if (!cond) fails.push(msg) }
@@ -88,6 +97,7 @@ export const SCENARIOS = [
 
 const results = []
 for (const s of SCENARIOS) {
+  if (results.length) await pause()
   const started = Date.now()
   const res = await fetch(`${base}/api/parse`, {
     method: 'POST',
@@ -98,6 +108,7 @@ for (const s of SCENARIOS) {
   const ms = Date.now() - started
   const fails = []
   s.check(body, fails, res.status)
+  aiCheck(body, fails, res.status)
   const pass = fails.length === 0
   results.push({ name: s.name, note: s.note, expected: s.expected, status: res.status, ms, pass, fails, body })
 
@@ -114,15 +125,84 @@ for (const s of SCENARIOS) {
   for (const k of body.skipped ?? []) console.log(`  skip  ${k}`)
 }
 
+// ---- Trip plan and shift summary (same open tasks / stats as the seed shift + Allergy scenario) ----
+const PLAN_TASKS = [
+  { id: 't1-water', table: 1, text: 'Refill 2 waters', category: 'drinks', priority: 'normal', flags: [], waitMin: 7 },
+  { id: 't1-napkins', table: 1, text: 'Bring extra napkins', category: 'supplies', priority: 'low', flags: [], waitMin: 7 },
+  { id: 't4-ranch', table: 4, text: 'Bring ranch on the side', category: 'condiments', priority: 'normal', flags: [], waitMin: 3 },
+  { id: 't4-sesame', table: 4, text: 'Ask kitchen about sesame in bun', category: 'food', priority: 'high', flags: ['allergy'], waitMin: 2 },
+  { id: 't7-check', table: 7, text: 'Bring check, split 3 ways', category: 'check', priority: 'high', flags: [], waitMin: 6 },
+  { id: 't7-box', table: 7, text: 'Bring to-go box for brisket', category: 'supplies', priority: 'normal', flags: [], waitMin: 1 },
+  { id: 't4-lemon', table: 4, text: 'Bring lemon for water', category: 'condiments', priority: 'normal', flags: [], waitMin: 0 },
+]
+const STATS = {
+  shiftMinutes: 90, requests: 14, completed: 6, open: 8, completionRate: 43, avgCompleteMin: 4,
+  longestOpenWaitMin: 7, longestOpenTable: 1,
+  safeguards: { allergy: 2, soldOut: 1, complaint: 1, rejected: 1, clarification: 1 },
+  openAllergyTables: [4],
+  byTable: [{ table: 1, open: 2, completed: 2 }, { table: 4, open: 4, completed: 2 }, { table: 7, open: 2, completed: 2 }],
+  byCategory: [{ category: 'supplies', count: 4 }, { category: 'condiments', count: 3 }, { category: 'drinks', count: 2 }, { category: 'food', count: 2 }, { category: 'service', count: 2 }, { category: 'check', count: 1 }],
+}
+const EXTRAS = [
+  {
+    name: 'Trip plan', path: '/api/plan', payload: { tasks: PLAN_TASKS },
+    expected: 'At most 3 trips, only real task ids, allergy first.',
+    check(b, f) {
+      const ids = new Set(PLAN_TASKS.map((t) => t.id))
+      has(b.trips?.length >= 1 && b.trips.length <= 3, `expected 1-3 trips, got ${b.trips?.length}`, f)
+      has(b.trips?.every((t) => t.taskIds.every((id) => ids.has(id))), 'a trip used an unknown task id', f)
+      has(b.trips?.[0]?.taskIds.includes('t4-sesame'), 'allergy task is not in trip 1', f)
+    },
+    print(b) {
+      for (const [i, t] of (b.trips ?? []).entries()) console.log(`  trip ${i + 1}  ${t.title} [${t.taskIds.join(', ')}]  ${t.reason}`)
+    },
+  },
+  {
+    name: 'Shift summary', path: '/api/summary', payload: { stats: STATS },
+    expected: 'Headline, 2-4 insights, one action; open allergy at table 4 is the action; no invented numbers (server drops any).',
+    check(b, f) {
+      has(b.headline && b.insights?.length >= 1 && b.action, 'summary missing headline/insights/action', f)
+      has(/allerg/i.test(b.action ?? '') && /\b4\b/.test(b.action ?? ''), 'action is not the table 4 allergy check', f)
+    },
+    print(b) {
+      console.log(`  headline  ${b.headline}`)
+      for (const l of b.insights ?? []) console.log(`  insight   ${l}`)
+      console.log(`  action    ${b.action}`)
+    },
+  },
+]
+if (!process.argv.includes('--parse-only')) {
+  for (const x of EXTRAS) {
+    await pause()
+    const started = Date.now()
+    const res = await fetch(`${base}${x.path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(x.payload) })
+    const body = await res.json()
+    const ms = Date.now() - started
+    const fails = []
+    x.check(body, fails)
+    aiCheck(body, fails, res.status)
+    const pass = fails.length === 0
+    results.push({ name: x.name, expected: x.expected, status: res.status, ms, pass, fails, body })
+    console.log(`\n=== ${pass ? 'PASS' : 'FAIL'}  ${x.name}  [HTTP ${res.status}, ${ms} ms${body.source ? `, ${body.source}` : ''}]`)
+    console.log(`expected: ${x.expected}`)
+    for (const msg of fails) console.log(`  ! ${msg}`)
+    if (body.notice) console.log(`  notice: ${body.notice}`)
+    x.print(body)
+  }
+}
+
 const passed = results.filter((r) => r.pass).length
 const sources = [...new Set(results.map((r) => r.body.source).filter(Boolean))]
 console.log(`\n${passed}/${results.length} passed. Parser used: ${sources.join(', ') || 'n/a'}.`)
 
 if (jsonOut) {
-  const { writeFileSync, mkdirSync } = await import('node:fs')
+  const { writeFileSync, mkdirSync, existsSync } = await import('node:fs')
   const { dirname } = await import('node:path')
   mkdirSync(dirname(jsonOut), { recursive: true })
-  writeFileSync(jsonOut, JSON.stringify({ base, ranAt: new Date().toISOString(), passed, total: results.length, sources, results }, null, 2))
-  console.log(`Saved ${jsonOut}`)
+  // Never overwrite an earlier run: add a timestamp if the file already exists.
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const out = existsSync(jsonOut) ? jsonOut.replace(/\.json$/, `-${stamp}.json`) : jsonOut
+  writeFileSync(out, JSON.stringify({ base, ranAt: new Date().toISOString(), requireAi, passed, total: results.length, sources, results }, null, 2))
+  console.log(`Saved ${out}`)
 }
 process.exitCode = passed === results.length ? 0 : 1

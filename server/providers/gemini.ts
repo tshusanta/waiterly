@@ -1,7 +1,11 @@
-// Google Gemini provider (gemini-2.5-flash via @google/genai). Server-only: the
-// key comes from GEMINI_API_KEY and never reaches the browser. It uses the same
-// prompts and JSON schemas as Claude, and its output goes through the same validators.
-import { GoogleGenAI } from '@google/genai'
+// Google Gemini provider (@google/genai). Server-only: the key comes from
+// GEMINI_API_KEY and never reaches the browser. It uses the same prompts and
+// JSON schemas as Claude, and its output goes through the same validators.
+//
+// Model: gemini-3.8-flash by default. gemini-2.5-flash (the original choice)
+// returns 404 "no longer available to new users" for new keys, as seen live on
+// 2026-11-26. Set GEMINI_MODEL in Vercel to override without a code change.
+import { ApiError, GoogleGenAI, ThinkingLevel, type ThinkingConfig } from '@google/genai'
 import {
   PARSE_SCHEMA,
   PARSE_SYSTEM_PROMPT,
@@ -15,7 +19,18 @@ import {
 } from '../prompt.js'
 import { AI_TIMEOUT_MS, AiNotConfiguredError, AiUnavailableError, type AiProvider } from './types.js'
 
-const MODEL = 'gemini-2.5-flash'
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash'
+
+export function geminiModel(env: Record<string, string | undefined> = process.env): string {
+  return env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL
+}
+
+/** Keep thinking short for these small extraction tasks. 2.x models use a token budget, 3.x use a level. */
+export function thinkingFor(model: string): ThinkingConfig {
+  if (/^gemini-2\./.test(model)) return { thinkingBudget: 0 }
+  // LOW is the lowest level gemini-3.8-flash accepts: MINIMAL returned 400 "not supported for this model" (2026-11-26).
+  return { thinkingLevel: ThinkingLevel.LOW }
+}
 
 let client: GoogleGenAI | null = null
 function getClient(): GoogleGenAI {
@@ -25,19 +40,46 @@ function getClient(): GoogleGenAI {
   return client
 }
 
+/**
+ * Worth one retry: 503 "high demand" and a per-minute 429 (both fast and usually brief).
+ * Not worth it: a *daily* quota 429 (a retry just burns another request), 504, or a 400.
+ */
+export function isRetryable(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return false
+  if (err.status === 503) return true
+  return err.status === 429 && !/per ?day|PerDay/i.test(err.message)
+}
+
+const RETRY_DELAY_MS = 700
+const MIN_TIME_FOR_RETRY_MS = 6_000
+
 async function structuredCall(system: string, user: string, schema: object): Promise<unknown> {
-  const response = await getClient().models.generateContent({
-    model: MODEL,
-    contents: user,
-    config: {
-      systemInstruction: system,
-      responseMimeType: 'application/json',
-      responseJsonSchema: schema,
-      thinkingConfig: { thinkingBudget: 0 }, // speed: these are short extraction tasks
-      abortSignal: AbortSignal.timeout(AI_TIMEOUT_MS),
-      httpOptions: { timeout: AI_TIMEOUT_MS },
-    },
-  })
+  const model = geminiModel()
+  const deadline = Date.now() + AI_TIMEOUT_MS // one 15 s budget for the whole call, retry included
+  const attempt = () => {
+    const remaining = Math.max(1_000, deadline - Date.now())
+    return getClient().models.generateContent({
+      model,
+      contents: user,
+      config: {
+        systemInstruction: system,
+        responseMimeType: 'application/json',
+        responseJsonSchema: schema,
+        thinkingConfig: thinkingFor(model),
+        abortSignal: AbortSignal.timeout(remaining),
+        httpOptions: { timeout: remaining },
+      },
+    })
+  }
+
+  let response
+  try {
+    response = await attempt()
+  } catch (err) {
+    if (!isRetryable(err) || deadline - Date.now() < MIN_TIME_FOR_RETRY_MS) throw err
+    await new Promise((r) => setTimeout(r, RETRY_DELAY_MS))
+    response = await attempt()
+  }
   const finish = response.candidates?.[0]?.finishReason
   if (finish && finish !== 'STOP') throw new AiUnavailableError(`Model stopped early: ${finish}`)
   const text = response.text
@@ -48,7 +90,10 @@ async function structuredCall(system: string, user: string, schema: object): Pro
 export const geminiProvider: AiProvider = {
   name: 'gemini',
   label: 'Gemini (Google)',
-  models: { parse: MODEL, plan: MODEL, summary: MODEL },
+  get models() {
+    const m = geminiModel()
+    return { parse: m, plan: m, summary: m }
+  },
   isConfigured: () => Boolean(process.env.GEMINI_API_KEY),
   parseNote: ({ note, section, openTasks }) =>
     structuredCall(PARSE_SYSTEM_PROMPT, buildParseUserMessage(note, section, openTasks), PARSE_SCHEMA),
