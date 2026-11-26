@@ -1,6 +1,6 @@
 # Waiterly Test Results
 
-**Status, November 26, 2026 (after the final feature update):** the live site runs **Gemini `gemini-3.8-flash` on Google's free tier (20 requests per day)**.
+**Status, November 26, 2026 (after the check-card fix, Section 8):** the live site runs **Gemini `gemini-3.5-flash-lite` on Google's free tier**. The check card now sends clear items right away and holds only the unclear ones. Mixed results: **205/205 tests, 28/28 card UI checks at 375 and 1440 px, and 2/2 real-AI checks pass** (Section 8).
 - **Free-tier rule for this round:** at most **8 real-AI calls**. Everything else is tested against **mocked Gemini replies** that run through the real endpoint, provider code and validators. On 2026-11-26, 7 real calls went to `gemini-3.8-flash` (all ended in Google errors), then 1 to `gemini-3.5-flash-lite` (AI, 5.1 s, PASS). Free-tier limits are per model.
 - **Typed-note scenarios:** 5 real Gemini answers so far, and all 5 pass (Section 3).
 - **Table visits:** all 18 transcripts pass with mocked replies. On `gemini-3.8-flash`, all 3 live attempts got Google 504s. **After switching to `gemini-3.5-flash-lite` with minimal thinking, the long visit answered with real AI in 5.1 s and passed** (Section 7.6).
@@ -10,12 +10,13 @@ Nothing in this document claims an AI result that didn't happen.
 
 | Layer | What | Result |
 |---|---|---|
-| Unit + integration tests | `npm test` (Vitest, 16 files) | **191/191 pass** |
+| Unit + integration tests | `npm test` (Vitest, 14 files) | **205/205 pass** |
 | Typed-note scenarios, mocked Gemini | `tests/scenarios.mock.test.ts` (same checks as the live runner) | **10/10 pass** + 9 wrong-reply and error cases |
-| **Table-visit transcripts, mocked Gemini** | `tests/visits.mock.test.ts`, 18 transcripts (Section 7.2) | **18/18 pass** + 12 table-rule, limit and fallback cases |
+| **Table-visit transcripts, mocked Gemini** | `tests/visits.mock.test.ts`, 19 transcripts (Sections 7.2, 8) | **19/19 pass** + 16 table-rule, mixed-result, limit and fallback cases |
 | Spec scenarios, fallback path, local and live | `scripts/run-scenarios.mjs` | **8/8 pass** (Sections 1, 1b) |
-| Typed-note scenarios, **real Gemini**, live | `--require-ai` | **5/5 real answers pass.** Allergy, Unclear table and Summary: no real answer yet (Section 3 + 7.4) |
-| **Table visits, real Gemini, live** | `--visits --require-ai` | `gemini-3.8-flash`: 3 attempts, all 504. **`gemini-3.5-flash-lite`: 1 attempt, AI, 5.1 s, PASS** (Section 7.6) |
+| Typed-note scenarios, **real Gemini**, live | `--require-ai` | **6/6 real answers pass** (Unclear table added in Section 8). Allergy and Summary: no real answer yet (Section 3 + 7.4) |
+| **Table visits, real Gemini, live** | `--visits --require-ai` | `gemini-3.8-flash`: 3 attempts, all 504. **`gemini-3.5-flash-lite`: 2 attempts, both AI and PASS** (long visit, Section 7.6; mixed visit, Section 8) |
+| **Check card, mixed results, headless Chrome** | 375 + 1440 px, `/api/parse` mocked in the page (Section 8) | **28/28 pass** |
 | Real AI: Claude | with `ANTHROPIC_API_KEY` | **Not run** (no key) |
 | UI, headless Chrome, 375 + 1440 px | DevTools-protocol script with a scripted speech recognizer (Section 7.3) | **59/59 local, 31/31 live** (AI steps skipped live to save quota) |
 
@@ -427,3 +428,62 @@ node scripts/run-scenarios.mjs https://waiterly.vercel.app --visits --parse-only
 - Not verifiable from the logs: whether Google accepted MINIMAL or the server fell back to LOW. A rejected level isn't logged when the retry succeeds.
 - Other visit transcripts still have only mocked results on the real model.
 
+
+---
+
+## 8. Check card: mixed results (2026-11-26)
+
+**Rule:** one unclear or unavailable item never blocks the rest. Before this, one unclear table disabled **Confirm** for every task in the visit. Backup tag before the change: `v2-final-backup`.
+
+### 8.1 Unit and integration tests (mocked AI): 205/205 pass
+
+The new tests, all passing:
+
+| Test | File | What it proves |
+|---|---|---|
+| **3 clear + 1 unclear table + 1 sold-out** | `src/lib/verify.test.ts` | States are ready ×3, held-table, held-unavailable. **Send ready items** sends exactly the 3, and the card stays with 2. Tapping T7 sends the napkins at once. Replacing the salmon with "ribeye steak" sends it to T4 without the 86'd flag. Then the card is finished. POS: `T4: 2 waters, ranch, check, ribeye steak \| T7: napkins` |
+| **Mismatch fixed by one tap** | same | Tapping "Guest said: side of ranch" sends "Side of ranch" to T4. The other, ready item is *not* sent by that tap. |
+| Mismatch with no table | same | Choosing a version leaves it held-table, and a table tap then sends it |
+| **Already-open item** | same + `tests/visits.mock.test.ts` + `shared/parse/parse.test.ts` | Returned as `alreadyOpen`, never a row and never a rejection. Older `skipped` strings are still read. |
+| **Never both ready and held** | same three files | The model returns T7 "Bring 2 waters" + "Bring napkins" *and* "Which table wants 2 waters and napkins?". The question is dropped (server and browser), and "more bread" stays a held item. Every row is in exactly one list. |
+| Copy for POS only sent | `verify.test.ts` | Held items never appear in the POS line |
+| Remove / replace with another sold-out item | same | Remove sends nothing. Replacing with key lime pie (also 86'd) stays held. |
+| Outside the section | `verify.test.ts`, `visits.mock.test.ts` | A red rejection, "Table 9 is not in your section (1, 4, 7).", while the table 1 item in the same visit still comes through |
+| Not on the menu, checked in code | `visits.mock.test.ts` | Lobster (food, off the menu) is held. A Coke (drink) and wings (on the menu) are not, even when the model marks them. |
+| Mixed visit transcript (#19) | `visits.mock.test.ts` via `scenario-spec.mjs` | Same check as the live run below |
+
+### 8.2 UI checks: headless Chrome, 375 px and 1440 px: 28/28 pass
+
+The script fakes the mic and returns a mixed visit from a mocked `/api/parse` in the page (no AI quota): 3 ready items, napkins with no table, sold-out salmon, a ranch/blue cheese mismatch, one already-open item and one payment rejection. At both widths:
+
+- The card shows "Ready to send (3)", "Needs you (3)" and one primary **Send ready items (3)**. It has the table buttons, "Salmon is sold out - tell the guest" with Replace/Remove, and both mismatch versions. "Already on Table 4's list" is a grey line, and the rejection is red.
+- **Task text wraps, never cut off.** There are no text inputs in the card at rest. The 52-character wings task wraps to 3 lines at 375 px. Task and quoted text use IBM Plex Sans, and only table tags and badges use IBM Plex Mono. There is no horizontal scroll.
+- **Send ready items** puts the 3 items on Table 4, not the salmon. The card stays open with "3 items need you".
+- Tapping **T7** on napkins sends it ("2 items need you"). Tapping **Guest said** sends "side of ranch" ("1 item needs you").
+- **Discard** asks: "1 item still needs you and hasn't been sent." Cancel keeps the card.
+- **Replace** → "ribeye steak" → **Send**: the card closes, showing "Sent 6 items to Table 4, Table 7." **Copy for POS** gives `T4: 2 waters, wings with blue cheese on the side extra crispy, check, side of ranch, ribeye steak | T7: napkins` (no salmon).
+
+### 8.3 Real AI (live, `gemini-3.5-flash-lite`): 2 calls (limit 3), 2/2 PASS
+
+```
+node scripts/run-scenarios.mjs https://waiterly.vercel.app --visits --parse-only --require-ai --max-ai-calls 3 \
+  --only "Visit: mixed (3 clear, unclear table, sold-out)|Unclear table"
+
+=== PASS  Unclear table  [HTTP 200, 1298 ms, ai]
+  ask   Which table wants more bread?
+  rej   table 9 needs a high chair -> Table 9 is not in your section
+
+=== PASS  Visit: mixed (3 clear, unclear table, sold-out)  [HTTP 200, 1245 ms, ai]
+  task  T4  [spoken/ok]  normal Bring 2 waters
+  task  T4  [spoken/ok]  high   Bring check
+  task  T7  [spoken/ok]  normal Bring ranch
+  task  T4  [spoken/ok]  normal Tell guest salmon is 86'd  [86d]   unavailable: salmon (sold_out)
+  needs_clarification: "extra napkins" -> "Which table wants extra napkins?"
+
+2/2 passed. Parser used: ai. AI-bound requests sent: 2.
+```
+
+- The real model returned **every** request: 3 clear, the sold-out salmon (kept, marked unavailable) and the napkins as a question. Nothing was dropped or rejected. On the card, the napkins question becomes a held "Extra napkins" item with T1/T4/T7 buttons.
+- "Unclear table" now has a real-AI result: bread is a question (a held item on the card), and table 9 is a red rejection.
+- Raw JSON: `docs/test-output/mixed-card.json`.
+- Not tested: the mixed card with a real microphone or on a phone. The UI flow was checked with a scripted recognizer and a mocked reply.

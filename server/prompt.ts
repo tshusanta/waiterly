@@ -49,7 +49,7 @@ export const PARSE_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['table', 'text', 'category', 'priority', 'flags', 'note'],
+        required: ['table', 'text', 'category', 'priority', 'flags', 'note', 'unavailable'],
         properties: {
           table: { type: 'integer' },
           text: STRING,
@@ -57,6 +57,7 @@ export const PARSE_SCHEMA = {
           priority: { type: 'string', enum: [...PRIORITIES] },
           flags: { type: 'array', items: { type: 'string', enum: [...FLAGS] } },
           note: STRING,
+          unavailable: STRING,
         },
       },
     },
@@ -183,7 +184,7 @@ Example (section 2, 5; starting table 5): "two iced teas please actually make on
 const VISIT_TASK_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['table', 'table_source', 'text', 'category', 'priority', 'flags', 'note', 'changes'],
+  required: ['table', 'table_source', 'text', 'category', 'priority', 'flags', 'note', 'changes', 'unavailable'],
   properties: {
     table: { type: 'integer' },
     table_source: { type: 'string', enum: ['card', 'spoken', 'corrected', 'none'] },
@@ -193,6 +194,7 @@ const VISIT_TASK_SCHEMA = {
     flags: { type: 'array', items: { type: 'string', enum: [...FLAGS] } },
     note: STRING,
     changes: { type: 'array', items: STRING },
+    unavailable: STRING,
   },
 } as const
 

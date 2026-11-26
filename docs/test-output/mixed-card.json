@@ -1,0 +1,128 @@
+{
+  "base": "https://waiterly.vercel.app",
+  "ranAt": "2026-11-26T20:10:50.411Z",
+  "requireAi": true,
+  "aiCalls": 2,
+  "passed": 2,
+  "total": 2,
+  "sources": [
+    "ai"
+  ],
+  "results": [
+    {
+      "name": "Unclear table",
+      "note": "the guy by the window wants more bread and table 9 needs a high chair",
+      "expected": "Bread becomes a clarification question. Table 9 is rejected as outside the section.",
+      "status": 200,
+      "ms": 1298,
+      "pass": true,
+      "fails": [],
+      "body": {
+        "source": "ai",
+        "tasks": [],
+        "needs_clarification": [
+          {
+            "request": "the guy by the window wants more bread",
+            "question": "Which table wants more bread?"
+          }
+        ],
+        "rejected": [
+          {
+            "request": "table 9 needs a high chair",
+            "reason": "Table 9 is not in your section"
+          }
+        ],
+        "skipped": [],
+        "alreadyOpen": []
+      }
+    },
+    {
+      "name": "Visit: mixed (3 clear, unclear table, sold-out)",
+      "expected": "3 ready (T4 waters, T4 check, T7 ranch), salmon held as sold out, napkins held with no table. Nothing dropped, nothing both ready and held.",
+      "status": 200,
+      "ms": 1245,
+      "pass": true,
+      "fails": [],
+      "body": {
+        "source": "ai",
+        "tasks": [
+          {
+            "tableOptions": [],
+            "heardTable": null,
+            "tableMessage": "",
+            "table": 4,
+            "tableSource": "spoken",
+            "tableStatus": "ok",
+            "text": "Bring 2 waters",
+            "category": "drinks",
+            "priority": "normal",
+            "flags": [],
+            "note": "",
+            "changes": []
+          },
+          {
+            "tableOptions": [],
+            "heardTable": null,
+            "tableMessage": "",
+            "table": 4,
+            "tableSource": "spoken",
+            "tableStatus": "ok",
+            "text": "Bring check",
+            "category": "check",
+            "priority": "high",
+            "flags": [],
+            "note": "",
+            "changes": []
+          },
+          {
+            "tableOptions": [],
+            "heardTable": null,
+            "tableMessage": "",
+            "table": 7,
+            "tableSource": "spoken",
+            "tableStatus": "ok",
+            "text": "Bring ranch",
+            "category": "condiments",
+            "priority": "normal",
+            "flags": [],
+            "note": "",
+            "changes": []
+          },
+          {
+            "tableOptions": [],
+            "heardTable": null,
+            "tableMessage": "",
+            "table": 4,
+            "tableSource": "spoken",
+            "tableStatus": "ok",
+            "text": "Tell guest salmon is 86'd",
+            "category": "food",
+            "priority": "normal",
+            "flags": [
+              "86d"
+            ],
+            "note": "",
+            "unavailable": {
+              "item": "salmon",
+              "reason": "sold_out"
+            },
+            "changes": []
+          }
+        ],
+        "changes": [],
+        "mismatches": [],
+        "tableCorrections": [],
+        "needs_clarification": [
+          {
+            "request": "extra napkins",
+            "question": "Which table wants extra napkins?"
+          }
+        ],
+        "rejected": [],
+        "skipped": [],
+        "alreadyOpen": [],
+        "trimmed": false
+      }
+    }
+  ]
+}

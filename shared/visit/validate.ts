@@ -4,8 +4,8 @@
 // payment rules as a typed note.
 import { CATEGORIES, FLAGS, PRIORITIES, type Category, type Priority } from '../types.js'
 import { cleanString, cleanTaskText, isNearDuplicate, mentionedNumbers } from '../parse/text.js'
-import { MAX_TASKS, type Clarification, type Rejection } from '../parse/types.js'
-import { PAYMENT_RE, ParseShapeError, enforceRules, pick, toInt } from '../parse/validate.js'
+import { MAX_TASKS, type Clarification, type OpenTaskRef, type Rejection } from '../parse/types.js'
+import { PAYMENT_RE, ParseShapeError, dropCovered, enforceRules, notOnMenu, pick, toInt } from '../parse/validate.js'
 import { resolveTable, spokenTables } from './tables.js'
 import type { Mismatch, TableCorrection, VisitContext, VisitResult, VisitTask } from './types.js'
 
@@ -32,6 +32,7 @@ export function validateVisitResult(raw: unknown, ctx: VisitContext): VisitResul
   const rawIndexToTask = new Map<number, number>()
   const rejected: Rejection[] = []
   const skipped: string[] = []
+  const alreadyOpen: OpenTaskRef[] = []
 
   for (const [i, item] of r.tasks.slice(0, 40).entries()) {
     if (!item || typeof item !== 'object') continue
@@ -43,11 +44,14 @@ export function validateVisitResult(raw: unknown, ctx: VisitContext): VisitResul
       continue
     }
     const aiTable = toInt(t.table)
+    const category = pick<Category>(CATEGORIES, t.category, 'other')
+    const unavailable = notOnMenu(t.unavailable, category)
     const task: VisitTask = {
       ...decide(aiTable === 0 ? null : aiTable),
       ...enforceRules({
         text,
-        category: pick<Category>(CATEGORIES, t.category, 'other'),
+        category,
+        ...(unavailable ? { unavailable } : {}),
         priority: pick<Priority>(PRIORITIES, t.priority, 'normal'),
         flags: Array.isArray(t.flags)
           ? FLAGS.filter((f) => (t.flags as unknown[]).some((x) => typeof x === 'string' && x.toLowerCase() === f))
@@ -56,9 +60,15 @@ export function validateVisitResult(raw: unknown, ctx: VisitContext): VisitResul
       }),
       changes: cleanList(t.changes, MAX_CHANGES_PER_TASK),
     }
+    // A table outside the section is a real rejection (red), not something to fix here.
+    if (task.tableStatus === 'outside') {
+      rejected.push({ request: `Table ${task.heardTable}: ${task.text}`, reason: `Table ${task.heardTable} is not in your section (${section.join(', ')}).` })
+      continue
+    }
     // Duplicates: against open tasks (same resolved table), and within this visit.
     if (task.table !== null && ctx.openTasks.some((o) => o.table === task.table && isNearDuplicate(o.text, task.text))) {
       skipped.push(`Table ${task.table}: ${task.text} (already open)`)
+      alreadyOpen.push({ table: task.table, text: task.text })
       continue
     }
     const dup = tasks.findIndex((u) => u.table === task.table && u.text.toLowerCase() === task.text.toLowerCase())
@@ -83,8 +93,10 @@ export function validateVisitResult(raw: unknown, ctx: VisitContext): VisitResul
       if (tasks.length >= MAX_TASKS) continue
       const text = cleanTaskText(readBack, 10)
       if (!text || PAYMENT_RE.test(text)) continue
+      const d = decide(null)
+      if (d.tableStatus === 'outside') continue
       taskIndex = tasks.length
-      tasks.push({ ...decide(null), ...enforceRules({ text, category: 'other' as Category, priority: 'normal' as Priority, flags: [], note: '' }), changes: [] })
+      tasks.push({ ...d, ...enforceRules({ text, category: 'other' as Category, priority: 'normal' as Priority, flags: [], note: '' }), changes: [] })
     }
     if (!mismatches.some((y) => y.taskIndex === taskIndex)) mismatches.push({ taskIndex, guest, readBack })
   }
@@ -116,9 +128,11 @@ export function validateVisitResult(raw: unknown, ctx: VisitContext): VisitResul
     changes: cleanList(r.changes, MAX_VISIT_CHANGES),
     mismatches: mismatches.filter((m) => m.taskIndex < kept.length),
     tableCorrections,
-    needs_clarification: clarifications,
+    // An item is never both a task and a "Which table?" question.
+    needs_clarification: dropCovered(clarifications, [...kept, ...alreadyOpen].map((t) => t.text)),
     rejected: rejected.slice(0, 10),
     skipped,
+    alreadyOpen,
     trimmed: ctx.trimmed,
   }
 }

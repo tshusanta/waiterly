@@ -1789,3 +1789,180 @@ button:disabled {
     animation: none !important;
   }
 }
+
+/* ---------- Check card: ready vs. needs you ---------- */
+
+.verify-group {
+  margin-top: var(--s4);
+}
+
+.group-title {
+  margin-bottom: var(--s2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.group-title-warn {
+  color: var(--amber);
+}
+
+.send-ready {
+  margin-top: var(--s3);
+}
+
+.held-count {
+  margin-top: var(--s2);
+  color: var(--amber);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.draft-body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: flex-start;
+  gap: var(--s1);
+}
+
+/* Task text wraps; it is never cut off. Normal UI font, not monospace. */
+.draft-text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 10px 0;
+  font-family: inherit;
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.draft-edit {
+  flex: 1;
+  min-width: 0;
+  height: auto;
+  min-height: 44px;
+  padding: var(--s2);
+  font-family: inherit;
+  line-height: 1.4;
+  resize: vertical;
+}
+
+.draft-main .draft-body .btn-icon {
+  margin-top: 0;
+}
+
+.draft-main {
+  align-items: flex-start;
+}
+
+.table-tag {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  min-width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  font-size: var(--fs-sm);
+}
+
+.table-tag-empty {
+  border-style: dashed;
+  border-color: var(--amber-border);
+  color: var(--amber);
+}
+
+.draft-held {
+  padding: var(--s3);
+  border: 1px solid var(--amber-border);
+  border-radius: var(--radius-sm);
+  background: var(--amber-bg);
+}
+
+.held-fix {
+  margin-top: var(--s2);
+}
+
+.held-why {
+  display: flex;
+  gap: var(--s1);
+  align-items: flex-start;
+  margin: 0;
+  font-size: var(--fs-sm);
+  overflow-wrap: anywhere;
+}
+
+.held-why svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.table-buttons,
+.held-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-top: var(--s2);
+}
+
+.table-btn {
+  min-width: 56px;
+  background: var(--surface);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.table-btn:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.table-btn-suggested {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.replace-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-top: var(--s2);
+}
+
+.replace-form .input {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.held-actions .btn,
+.mismatch-option {
+  background: var(--surface);
+}
+
+.already-open {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  margin-top: var(--s4);
+  color: var(--muted);
+}
+
+.already-text {
+  overflow-wrap: anywhere;
+}
+
+.notice-ok {
+  background: var(--ok-bg);
+  border: 1px solid var(--ok-border);
+}
+
+.sent-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.sent-bar > span {
+  flex: 1 1 180px;
+}

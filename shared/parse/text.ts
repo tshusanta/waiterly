@@ -86,3 +86,16 @@ export function isNearDuplicate(a: string, b: string): boolean {
   const large = Math.max(ta.size, tb.size)
   return shared === small && large - small <= 2
 }
+
+/**
+ * Is this request already covered by tasks that were created? "2 waters and napkins"
+ * is covered by "Bring 2 waters" + "Bring napkins". Used to drop a "Which table?"
+ * question about a request that already became a task, so an item is never both.
+ */
+export function coveredByTasks(request: string, taskTexts: string[]): boolean {
+  const req = dedupeTokens(request)
+  if (req.size === 0 || taskTexts.length === 0) return false
+  if (taskTexts.some((t) => isNearDuplicate(t, request))) return true
+  const have = new Set(taskTexts.flatMap((t) => [...dedupeTokens(t)]))
+  return [...req].every((w) => have.has(w))
+}

@@ -83,6 +83,13 @@ const REPLIES: Record<string, Reply> = {
     t(4, 'card', 'Ask kitchen about peanuts in satay', 'food', { priority: 'high', flags: ['allergy'], note: 'Guest allergic to peanuts' }),
     t(4, 'card', 'Bring check with the food', 'check', { priority: 'high', changes: ['Check added'] }),
   ]),
+  'Visit: mixed (3 clear, unclear table, sold-out)': visit([
+    t(4, 'spoken', 'Bring 2 waters', 'drinks'),
+    t(4, 'spoken', 'Bring check', 'check', { priority: 'high' }),
+    t(7, 'spoken', 'Bring ranch', 'condiments'),
+    t(4, 'spoken', "Tell guest salmon is 86'd", 'service', { flags: ['86d'], unavailable: 'salmon' }),
+    t(0, 'none', 'Bring extra napkins', 'supplies'),
+  ]),
   'Visit: speech-recognition restart mid-visit': visit([t(7, 'card', 'Bring 2 iced teas', 'drinks'), t(7, 'card', 'Order side of fries', 'food')]),
 }
 
@@ -102,8 +109,8 @@ type Spec = { name: string; startTable: number | null; transcript: string; expec
 const VISIT_SPECS = VISITS as Spec[]
 
 describe('table-visit transcripts with mocked Gemini replies (same checks as a live run)', () => {
-  it('there are 18 transcripts, each with a mocked reply', () => {
-    expect(VISIT_SPECS).toHaveLength(18)
+  it('there are 19 transcripts, each with a mocked reply', () => {
+    expect(VISIT_SPECS).toHaveLength(19)
     for (const v of VISIT_SPECS) expect(REPLIES[v.name], v.name).toBeDefined()
   })
 
@@ -159,11 +166,11 @@ describe('the code enforces the table rules even when the model gets them wrong'
     expect(body.tasks[0]).toMatchObject({ table: null, tableStatus: 'missing', tableSource: 'none' })
   })
 
-  it('table outside the section -> warning, no table set', async () => {
-    google.replies.push(visit([t(9, 'spoken', 'Bring high chair', 'supplies')]))
-    const body = await (await sendVisit({ transcript: 'table 9 needs a high chair', startTable: null })).json()
-    expect(body.tasks[0]).toMatchObject({ table: null, tableStatus: 'outside', heardTable: 9 })
-    expect(body.tasks[0].tableMessage).toMatch(/not in your section/)
+  it('table outside the section -> a red rejection, never a task', async () => {
+    google.replies.push(visit([t(9, 'spoken', 'Bring high chair', 'supplies'), t(1, 'spoken', 'Bring ranch', 'condiments')]))
+    const body = await (await sendVisit({ transcript: 'table 9 needs a high chair and table 1 wants ranch', startTable: null })).json()
+    expect(body.tasks.map((x) => x.text)).toEqual(['Bring ranch'])
+    expect(body.rejected).toContainEqual({ request: 'Table 9: Bring high chair', reason: 'Table 9 is not in your section (1, 4, 7).' })
   })
 
   it('allergy without the kitchen note, payment action and a dangling mismatch are all fixed in code', async () => {
@@ -228,5 +235,59 @@ describe('visit limits and fallback', () => {
     const body = await (await sendVisit({ transcript: 'table 1, sorry, 7 wants ranch', startTable: null })).json()
     expect(body.source).toBe('fallback')
     expect(body.tasks[0]).toMatchObject({ table: 7, tableSource: 'corrected' })
+  })
+})
+
+describe('mixed results: one unclear or unavailable item never blocks the rest', () => {
+  beforeEach(() => {
+    google.replies = []
+  })
+
+  it('3 clear items, 1 with no table and 1 sold-out all come back, each in one state', async () => {
+    google.replies.push(visit([
+      t(4, 'card', 'Bring 2 waters', 'drinks'),
+      t(4, 'card', 'Bring ranch', 'condiments'),
+      t(4, 'card', 'Bring check', 'check'),
+      t(0, 'none', 'Bring napkins', 'supplies'),
+      t(4, 'card', "Tell guest salmon is 86'd", 'service', { flags: ['86d'], unavailable: 'salmon' }),
+    ]))
+    const body = await (await sendVisit({
+      transcript: 'two waters ranch and the check please also the salmon and someone wants napkins for the next table over',
+      startTable: 4,
+    })).json()
+    expect(body.tasks).toHaveLength(5)
+    const salmon = body.tasks.find((x: { text: string }) => /salmon/i.test(x.text))
+    expect(salmon.unavailable).toEqual({ item: 'salmon', reason: 'sold_out' })
+    // With a card and no other table spoken, "no table" from the model means the card's table.
+    expect(body.tasks.filter((x: { tableStatus: string }) => x.tableStatus === 'ok')).toHaveLength(5)
+    expect(body.rejected).toEqual([])
+  })
+
+  it('a model that returns a task AND a "Which table?" for the same request: only the task is kept', async () => {
+    google.replies.push(visit(
+      [t(7, 'spoken', 'Bring 2 waters', 'drinks'), t(7, 'spoken', 'Bring napkins', 'supplies')],
+      { needs_clarification: [{ request: '2 waters and napkins', question: 'Which table wants 2 waters and napkins?' }] },
+    ))
+    const body = await (await sendVisit({ transcript: 'table 7 wants 2 waters and napkins', startTable: null })).json()
+    expect(body.tasks.map((x: { table: number }) => x.table)).toEqual([7, 7])
+    expect(body.needs_clarification).toEqual([])
+  })
+
+  it('an already-open item comes back structured, not as a rejection', async () => {
+    google.replies.push(visit([t(4, 'card', 'Bring 2 waters', 'drinks'), t(4, 'card', 'Bring napkins', 'supplies')]))
+    const body = await (await sendVisit({ transcript: 'two waters and napkins', startTable: 4, openTasks: [{ table: 4, text: 'Bring 2 waters' }] })).json()
+    expect(body.tasks.map((x: { text: string }) => x.text)).toEqual(['Bring napkins'])
+    expect(body.alreadyOpen).toEqual([{ table: 4, text: 'Bring 2 waters' }])
+    expect(body.rejected).toEqual([])
+  })
+
+  it('"not on the menu" is checked in code: a food item off the menu is held, a drink or a menu dish is not', async () => {
+    google.replies.push(visit([
+      t(4, 'card', "Tell guest lobster isn't on the menu", 'food', { unavailable: 'lobster' }),
+      t(4, 'card', 'Bring 1 Coke', 'drinks', { unavailable: 'Coke' }),
+      t(4, 'card', 'Bring chicken wings', 'food', { unavailable: 'wings' }),
+    ]))
+    const body = await (await sendVisit({ transcript: 'lobster a Coke and the wings', startTable: 4 })).json()
+    expect(body.tasks.map((x: { unavailable?: unknown }) => x.unavailable ?? null)).toEqual([{ item: 'lobster', reason: 'not_on_menu' }, null, null])
   })
 })

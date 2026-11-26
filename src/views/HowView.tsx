@@ -22,7 +22,7 @@ const FLOW = [
 const SAFEGUARDS: { what: string; how: string; where: string }[] = [
   {
     what: 'Server confirms every AI task',
-    how: 'Tasks from a visit or typed note wait in the "Check before adding" card. The server can change the table (section tables only), edit or remove a task, and choose between what the guest said and the read-back when they differ, before "Confirm N tasks".',
+    how: 'Tasks from a visit or typed note wait in the "Check before adding" card. The server can change the table (section tables only), edit or remove a task, and choose between what the guest said and the read-back when they differ. Ready items go out on "Send ready items (N)". Held items (no clear table, sold out or not on the menu, guest and read-back differ) wait under "Needs you" with one-tap fixes, and each one is sent the moment it is fixed. One problem item never blocks the rest.',
     where: 'UI',
   },
   {
@@ -47,7 +47,7 @@ const SAFEGUARDS: { what: string; how: string; where: string }[] = [
   },
   {
     what: 'Table rules enforced in code',
-    how: 'A visit from a card uses that table unless another is said. A different spoken table means the server picks between the two. A self-correction ("table 1, sorry, 7") uses the correction. No table means an empty picker, and Confirm stays disabled. Tables outside the section are refused. A table the model names but nobody said is ignored.',
+    how: 'A visit from a card uses that table unless another is said. A different spoken table means the server picks between the two. A self-correction ("table 1, sorry, 7") uses the correction. No table means the item waits under "Needs you" with a button for each section table; the other items are not held up. Tables outside the section are refused. A table the model names but nobody said is ignored.',
     where: 'Code + UI',
   },
   {

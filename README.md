@@ -17,7 +17,7 @@ Built for CIS 3100, Application of Generative AI. All data is synthetic.
 1. On **Service**, tap a quick button on a table card (for example **Water**). It's added at once, with a 5-second Undo.
 2. Tap the **mic on a table card** (or **Start visit** at the bottom) and talk through a visit, for example "two waters, actually make it three, and a Coke no ice". Tap **Stop**. No mic support? A text box opens instead.
 3. Or tap a **Test scenarios** chip (for example *Allergy*), then **Organize with AI**.
-4. Check the tasks on **Check before adding**: fix any table, edit or remove tasks, choose between guest and read-back if they differ, then **Confirm N tasks**. **Copy for POS** copies one clean line.
+4. Check the tasks on **Check before adding**. **Send ready items (N)** sends the clear ones at once. Anything unclear waits under **Needs you** with one-tap fixes: a table button, Replace/Remove for a sold-out item, or the guest's vs. the read-back version. Each one is sent as soon as it's fixed. One problem item never blocks the rest. **Copy for POS** copies one clean line of what was sent.
 5. Check tasks off on the table cards (overdue ones rise to the top, and the tab title shows the count), or tap **Plan my next trips**.
 6. Open **Floor stats** for KPIs, charts, the safeguard log and the shift summary.
 7. **How it works** lists the exact AI rules, every safeguard and the test scenarios.
@@ -28,7 +28,7 @@ Built for CIS 3100, Application of Generative AI. All data is synthetic.
 npm install
 cp .env.example .env   # optional: add ANTHROPIC_API_KEY or GEMINI_API_KEY
 npm run dev            # http://localhost:5173 (the /api routes run locally too)
-npm test               # 191 unit + integration tests (AI calls mocked)
+npm test               # 205 unit + integration tests (AI calls mocked)
 node scripts/run-scenarios.mjs http://localhost:5173   # spec scenarios with PASS/FAIL
 ```
 

@@ -15,6 +15,7 @@ export const RESTAURANT = {
     'ribeye steak',
     'grilled salmon',
     'chicken satay with peanut sauce',
+    'chicken wings',
     'caesar salad',
     'mac and cheese',
     'fries',

@@ -8,6 +8,13 @@ export interface DraftTask {
   priority: Priority
   flags: Flag[]
   note: string
+  /** Set when the item can't be served (sold out or not on the menu). The card holds it for the server. */
+  unavailable?: Unavailable
+}
+
+export interface Unavailable {
+  item: string
+  reason: 'sold_out' | 'not_on_menu'
 }
 
 export interface Clarification {
@@ -26,6 +33,8 @@ export interface ParseResult {
   rejected: Rejection[]
   /** Tasks dropped because the same request is already open. */
   skipped: string[]
+  /** The same tasks as skipped, structured, for the card's "Already on Table 4's list" line. */
+  alreadyOpen?: OpenTaskRef[]
 }
 
 /** Why the fallback ran: no key configured, or the AI failed. */

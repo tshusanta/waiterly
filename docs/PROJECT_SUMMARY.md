@@ -50,7 +50,7 @@ The server types one messy note (or talks through a table visit, below), for exa
 | **Gemini via `@google/genai`** (alternative) | Used when only a Google key is available. Live: `gemini-3.5-flash-lite` via `GEMINI_MODEL`, the fastest flash-lite this key can use, with minimal thinking (code default `gemini-3.8-flash`). Same prompts, schemas and validators. |
 | **Deterministic fallbacks** | The app works with no key, during outages and on timeouts, and the spec forbids fake AI output, so the fallback is honest code. |
 | **localStorage** | Each tester gets their own sandbox shift with no accounts and no stored personal data. "Reset shift" restores the sample. |
-| **Vitest** | 191 unit and integration tests. They include mocked Gemini replies for every scenario and all 18 visit transcripts, a model that misbehaves on purpose, and a fake speech recognizer. |
+| **Vitest** | 205 unit and integration tests. They include mocked Gemini replies for every scenario and all 19 visit transcripts, a model that misbehaves on purpose, and a fake speech recognizer. |
 | **Web Speech API** | Table-visit voice mode: continuous with live text, auto-restart, 20 s silence and 10 min cap, text only. Where unsupported, a text box. |
 
 ---
@@ -121,7 +121,7 @@ cd waiterly
 npm install
 cp .env.example .env     # optional: add ANTHROPIC_API_KEY or GEMINI_API_KEY; leave blank for FALLBACK MODE
 npm run dev              # http://localhost:5173; the /api routes run locally through a Vite dev plugin
-npm test                 # 191 unit + integration tests
+npm test                 # 205 unit + integration tests
 npm run scenarios -- http://localhost:5173   # spec scenarios with automatic PASS/FAIL
 ```
 

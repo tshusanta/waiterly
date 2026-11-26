@@ -9,7 +9,7 @@
 //   --require-ai       a fallback answer counts as FAIL (use when testing the real model)
 //   --delay ms         pause between requests
 //   --parse-only       skip the trip plan and shift summary
-//   --visits           also offer the 18 table-visit transcripts (pick some with --only)
+//   --visits           also offer the 19 table-visit transcripts (pick some with --only)
 //   --json out.json    save the raw results (never overwrites; adds a timestamp)
 //
 // Free-tier budgeting: each AI-bound request is one Gemini call, or two if Google

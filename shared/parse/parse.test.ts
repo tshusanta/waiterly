@@ -220,3 +220,43 @@ describe('mentionedNumbers', () => {
     expect(mentionedNumbers('t7, table four and twenty-one')).toEqual(new Set([7, 4, 21]))
   })
 })
+
+describe('validator: mixed results in a typed note', () => {
+  const ctx = (note: string, openTasks: { table: number; text: string }[] = []) => ({ note, assignedTables: SECTION, openTasks })
+  const task = (o: Record<string, unknown>) => ({ table: 7, text: 'Bring 2 waters', category: 'drinks', priority: 'normal', flags: [], note: '', ...o })
+
+  it('an item is never both a task and a "Which table?" question', () => {
+    const r = validateParseResult(
+      {
+        tasks: [task({}), task({ text: 'Bring napkins', category: 'supplies' })],
+        needs_clarification: [
+          { request: '2 waters and napkins', question: 'Which table wants 2 waters and napkins?' },
+          { request: 'more bread', question: 'Which table wants more bread?' },
+        ],
+      },
+      ctx('7 needs 2 waters and napkins, someone wants more bread'),
+    )
+    expect(r.tasks.map((t) => t.text)).toEqual(['Bring 2 waters', 'Bring napkins'])
+    expect(r.needs_clarification.map((c) => c.request)).toEqual(['more bread'])
+  })
+
+  it('a sold-out item stays in the result (marked unavailable) next to the clear items', () => {
+    const r = validateParseResult(
+      { tasks: [task({ table: 1, text: 'Bring salmon', category: 'food' }), task({ table: 1, text: 'Bring fries', category: 'food' })] },
+      ctx('table 1 wants the salmon and fries'),
+    )
+    expect(r.tasks).toHaveLength(2)
+    expect(r.tasks[0]).toMatchObject({ flags: ['86d'], unavailable: { item: 'salmon', reason: 'sold_out' } })
+    expect(r.tasks[1].unavailable).toBeUndefined()
+  })
+
+  it('already-open items are listed structured, and a question about them is dropped', () => {
+    const r = validateParseResult(
+      { tasks: [task({ table: 4, text: 'Bring ranch', category: 'condiments' })], needs_clarification: [{ request: 'ranch', question: 'Which table wants ranch?' }] },
+      ctx('4 wants ranch', [{ table: 4, text: 'Bring ranch' }]),
+    )
+    expect(r.tasks).toEqual([])
+    expect(r.alreadyOpen).toEqual([{ table: 4, text: 'Bring ranch' }])
+    expect(r.needs_clarification).toEqual([])
+  })
+})

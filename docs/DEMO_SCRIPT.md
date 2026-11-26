@@ -33,7 +33,7 @@ Point at the **amber WAITING 7 MIN** chips and the **ALLERGY** badge on Table 4.
 *[Fallback]* > "The card says FALLBACK MODE. The free AI is busy or out of quota right now, so a keyword parser did this, and it says so. The same safety checks run either way."
 *[AI]* > "That's Gemini Flash-Lite reading the note. Code then double-checks every field before I see it."
 
-**Click:** change one task's **table dropdown** to show it's editable, change it back, then click **Confirm 2 tasks**.
+**Click:** change one task's **table dropdown** to show it's editable, change it back, then click **Send ready items (2)**. (If one item lands under **Needs you**, tap its table button, and it is sent on the spot while the rest are not held up.)
 
 > "I can change any table or wording, or remove a task. Now they're on Table 4, and allergies sort to the top."
 

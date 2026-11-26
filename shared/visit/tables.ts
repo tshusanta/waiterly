@@ -96,7 +96,7 @@ function checkSection(d: TableDecision, section: number[]): TableDecision {
  *  - card tapped, no number spoken  -> the card's table
  *  - number spoken                  -> that table
  *  - card and spoken number differ  -> ask, with both as buttons
- *  - no table at all                -> empty picker, Confirm disabled
+ *  - no table at all                -> held: the server taps a section table
  *  - table outside the section      -> warning; pick a section table or remove
  * `aiTable` is what the model (or fallback) assigned. It only counts if that number
  * was actually spoken; a self-corrected number is replaced by its correction.
@@ -141,7 +141,7 @@ export function resolveTable(input: {
   }
 
   if (spokenOk) return checkSection({ ...base, table: t, tableSource: spokenSource, tableStatus: 'ok' }, section)
-  return { ...base, table: null, tableSource: 'none', tableStatus: 'missing', tableMessage: 'No table was said. Pick one before confirming.' }
+  return { ...base, table: null, tableSource: 'none', tableStatus: 'missing', tableMessage: 'No table was said. Which table?' }
 }
 
 /** The server picked a table (dropdown or conflict button). Section tables only. */
@@ -150,7 +150,7 @@ export function chooseTable<T extends Pick<VisitTask, 'table' | 'tableStatus' | 
   table: number | null,
   section: number[],
 ): T {
-  if (table === null) return { ...task, table: null, tableStatus: 'missing', tableOptions: [], tableMessage: 'Pick a table before confirming.' }
+  if (table === null) return { ...task, table: null, tableStatus: 'missing', tableOptions: [], tableMessage: 'Which table?' }
   if (!section.includes(table)) {
     return {
       ...task, table: null, tableStatus: 'outside', tableOptions: [], heardTable: table,

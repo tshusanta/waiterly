@@ -204,7 +204,7 @@ export const VISITS = [
   {
     name: 'Visit: no table at all', startTable: null,
     transcript: 'can I get two waters and some extra napkins please',
-    expected: 'Tasks with no table: picker empty, Confirm disabled until one is chosen.',
+    expected: 'Tasks with no table: held under "Needs you" until a table is tapped.',
     check(b, f) {
       has(b.tasks?.length >= 1, 'no tasks', f)
       has(b.tasks?.every((t) => t.table === null && t.tableStatus === 'missing'), 'a task got a table nobody said', f)
@@ -323,6 +323,23 @@ export const VISITS = [
       has(a?.priority === 'high' && a?.note === ALLERGY_NOTE, 'allergy not flagged high with kitchen note', f)
       has(b.tasks?.some((t) => t.category === 'check' && t.priority === 'high'), 'late check missing', f)
       has(b.tasks?.every((t) => t.table === 4 && t.tableStatus === 'ok'), 'a task left table 4', f)
+    },
+  },
+  {
+    name: 'Visit: mixed (3 clear, unclear table, sold-out)', startTable: null,
+    transcript: 'table 4 wants two waters and the check and table 7 needs ranch oh and the salmon for table 4 and somebody asked for extra napkins',
+    expected: '3 ready (T4 waters, T4 check, T7 ranch), salmon held as sold out, napkins held with no table. Nothing dropped, nothing both ready and held.',
+    check(b, f) {
+      const ready = (b.tasks ?? []).filter((t) => t.tableStatus === 'ok' && !t.unavailable)
+      has(ready.some((t) => t.table === 4 && /water/i.test(t.text)), 'no ready waters at table 4', f)
+      has(ready.some((t) => t.table === 4 && t.category === 'check'), 'no ready check at table 4', f)
+      has(ready.some((t) => t.table === 7 && /ranch/i.test(t.text)), 'no ready ranch at table 7', f)
+      has((b.tasks ?? []).some((t) => t.unavailable?.reason === 'sold_out' && /salmon/i.test(t.unavailable.item)), 'salmon not returned as sold out', f)
+      const napkinTask = (b.tasks ?? []).some((t) => /napkin/i.test(t.text))
+      const napkinAsk = (b.needs_clarification ?? []).some((c) => /napkin/i.test(c.request + c.question))
+      has(napkinTask || napkinAsk, 'napkins dropped', f)
+      has(!(napkinAsk && (b.tasks ?? []).some((t) => /napkin/i.test(t.text) && t.tableStatus === 'ok')), 'napkins both ready and held', f)
+      has((b.rejected ?? []).length === 0, `unexpected rejection: ${JSON.stringify(b.rejected)}`, f)
     },
   },
   {

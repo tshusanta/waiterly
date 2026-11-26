@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Mic } from 'lucide-react'
+import { Mic, X } from 'lucide-react'
 import { cleanTaskText } from '../../../shared/parse/text'
+import { posLine } from '../../../shared/pos'
 import { quickTapTask } from '../../../shared/quickTap'
 import type { Clarification, Rejection } from '../../../shared/parse/types'
 import type { SafeguardEvent, Task } from '../../../shared/types'
+import { CopyButton } from '../../components/CopyButton'
 import { ConfirmModal } from '../../components/Modal'
 import { UndoToast } from '../../components/UndoToast'
 import { ApiMessageError, parseNote, parseVisit } from '../../lib/api'
 import { getSpeechRecognition } from '../../lib/speech'
 import { useNow } from '../../lib/time'
-import { fromParseResponse, fromVisitResponse, readiness, type VerifyState } from '../../lib/verify'
+import { fromParseResponse, fromVisitResponse, isFinished, takeFixed, takeReady, type VerifyRow, type VerifyState } from '../../lib/verify'
 import { MIC_NOTICE_TEXT, startVisitRecorder, type VisitEndReason, type VisitRecorder } from '../../lib/visitRecorder'
 import { makeId } from '../../state/id'
 import { doneTasks, openTasks } from '../../state/shift'
@@ -57,7 +59,15 @@ export function ServiceView({ shiftApi, onParsed, prefill }: Props) {
   const [note, setNote] = useState(prefill?.note ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [verify, setVerify] = useState<VerifyState | null>(null)
+  const [verify, setVerifyState] = useState<VerifyState | null>(null)
+  // The latest card state, read synchronously so quick successive taps never send twice.
+  const verifyLive = useRef<VerifyState | null>(null)
+  const setVerify = useCallback((s: VerifyState | null) => {
+    verifyLive.current = s
+    setVerifyState(s)
+  }, [])
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
+  const [sentBar, setSentBar] = useState<{ count: number; tables: number[]; pos: string } | null>(null)
   const [visit, setVisit] = useState<Visit | null>(null)
   const [typedVisit, setTypedVisit] = useState<{ table: number | null; reason: string } | null>(null)
   const [visitMsg, setVisitMsg] = useState<string | null>(null)
@@ -89,9 +99,13 @@ export function ServiceView({ shiftApi, onParsed, prefill }: Props) {
   }, [verify?.kind, verify?.rows.length])
 
   const logQuestions = useCallback(
-    (rejected: Rejection[], clarifications: Clarification[]) => {
+    (rejected: Rejection[], clarifications: Clarification[], card?: VerifyState) => {
       const at = Date.now()
       addLogEvents([
+        // A sold-out request is logged when it's heard, whether it's later replaced or removed.
+        ...(card?.rows ?? [])
+          .filter((r) => r.unavailable?.reason === 'sold_out')
+          .map((r): SafeguardEvent => ({ id: makeId(), at, kind: '86d', table: r.table, text: r.text })),
         ...rejected.map((r): SafeguardEvent => ({ id: makeId(), at, kind: 'rejected', table: null, text: `${r.request ? `${r.request}: ` : ''}${r.reason}` })),
         ...clarifications.map((c): SafeguardEvent => ({ id: makeId(), at, kind: 'clarification', table: null, text: c.question })),
       ])
@@ -111,8 +125,10 @@ export function ServiceView({ shiftApi, onParsed, prefill }: Props) {
     try {
       const res = await parseNote(trimmed, tables, open.map((t) => ({ table: t.table, text: t.text })))
       onParsed(res.source)
-      setVerify(fromParseResponse(res, makeId))
-      logQuestions(res.rejected, res.needs_clarification)
+      const card = fromParseResponse(res, makeId)
+      setSentBar(null)
+      setVerify(card)
+      logQuestions(res.rejected, res.needs_clarification, card)
     } catch (e) {
       setError(e instanceof ApiMessageError ? e.message : 'Something went wrong. Try again.')
     } finally {
@@ -128,8 +144,10 @@ export function ServiceView({ shiftApi, onParsed, prefill }: Props) {
       const res = await parseVisit(transcript, table, t, o.map((x) => ({ table: x.table, text: x.text })))
       if (!mounted.current) return
       onParsed(res.source)
-      setVerify(fromVisitResponse(res, table, makeId))
-      logQuestions(res.rejected, res.needs_clarification)
+      const card = fromVisitResponse(res, table, makeId)
+      setSentBar(null)
+      setVerify(card)
+      logQuestions(res.rejected, res.needs_clarification, card)
       setVisitMsg(endNote ?? null)
     } catch (e) {
       if (!mounted.current) return
@@ -176,7 +194,7 @@ export function ServiceView({ shiftApi, onParsed, prefill }: Props) {
   function startVisit(table: number | null) {
     if (visit || typedVisit) return
     if (verify && verify.rows.length > 0) {
-      setVisitMsg('Confirm or discard the tasks waiting in "Check before adding" first.')
+      setVisitMsg('Send or discard the items waiting in "Check before adding" first.')
       verifyRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
       return
     }
@@ -191,10 +209,10 @@ export function ServiceView({ shiftApi, onParsed, prefill }: Props) {
     beginListening(table)
   }
 
-  function confirm() {
-    if (!verify || !readiness(verify, tables).ready) return
+  /** Put these rows on their table cards. Only rows with a section table get here. */
+  function sendRows(rows: VerifyRow[], card: VerifyState) {
     const at = Date.now()
-    const tasks: Task[] = verify.rows
+    const tasks: Task[] = rows
       .map((r) => ({ ...r, text: cleanTaskText(r.text, 10) }))
       .filter((r): r is typeof r & { table: number } => !!r.text && r.table !== null && tables.includes(r.table))
       .map((r) => ({
@@ -207,13 +225,54 @@ export function ServiceView({ shiftApi, onParsed, prefill }: Props) {
         note: r.note,
         createdAt: at,
         doneAt: null,
-        source: verify.source,
+        source: card.source,
       }))
+    if (!tasks.length) return
     addTasks(tasks)
-    addLogEvents(tasks.flatMap((t) => t.flags.map((f): SafeguardEvent => ({ id: makeId(), at, kind: f, table: t.table, text: t.text }))))
-    if (verify.kind === 'note') setNote('')
-    setVerify(null)
+    addLogEvents(
+      tasks.flatMap((t) => t.flags.filter((f) => f !== '86d').map((f): SafeguardEvent => ({ id: makeId(), at, kind: f, table: t.table, text: t.text }))),
+    )
+    if (card.kind === 'note') setNote('')
     setVisitMsg(null)
+  }
+
+  /** After a send or a fix: close the card when nothing is left, with "Copy for POS" for what was sent. */
+  function settle(next: VerifyState) {
+    if (!isFinished(next)) {
+      setVerify(next)
+      return
+    }
+    setVerify(null)
+    if (next.sent.length) {
+      setSentBar({
+        count: next.sent.length,
+        tables: [...new Set(next.sent.map((r) => r.table!))].sort((a, b) => a - b),
+        pos: posLine(next.sent),
+      })
+    }
+  }
+
+  function sendReady() {
+    const cur = verifyLive.current
+    if (!cur) return
+    const { state, sent } = takeReady(cur, tables)
+    sendRows(sent, cur)
+    settle(state)
+  }
+
+  function fixCard(update: (s: VerifyState) => VerifyState) {
+    const cur = verifyLive.current
+    if (!cur) return
+    const { state, sent } = takeFixed(cur, update(cur), tables)
+    if (sent.length) sendRows(sent, cur)
+    // A text edit keeps the card even if it empties nothing; removals and sends may close it.
+    if (state.rows.length === cur.rows.length && state.questions.length === cur.questions.length) setVerify(state)
+    else settle(state)
+  }
+
+  function discard() {
+    if (verifyLive.current && verifyLive.current.rows.length > 0) setConfirmDiscard(true)
+    else setVerify(null)
   }
 
   function quickTap(table: number, tapId: string) {
@@ -224,6 +283,7 @@ export function ServiceView({ shiftApi, onParsed, prefill }: Props) {
 
   const closeToast = useCallback(() => setToast(null), [])
   const cancelNotice = useCallback(() => setPendingNotice(null), [])
+  const cancelDiscard = useCallback(() => setConfirmDiscard(false), [])
   const visitBusy = visit !== null || typedVisit !== null
 
   const verifyCard = verify && (
@@ -231,9 +291,9 @@ export function ServiceView({ shiftApi, onParsed, prefill }: Props) {
       <VerificationCard
         state={verify}
         tables={tables}
-        onChange={(update) => setVerify((s) => (s ? update(s) : s))}
-        onConfirm={confirm}
-        onDiscard={() => setVerify(null)}
+        onFix={fixCard}
+        onSendReady={sendReady}
+        onDiscard={discard}
         onEditNote={() => {
           setVerify(null)
           textareaRef.current?.focus()
@@ -257,6 +317,17 @@ export function ServiceView({ shiftApi, onParsed, prefill }: Props) {
           <p className="notice notice-warn" role="alert">
             {visitMsg}
           </p>
+        )}
+        {sentBar && (
+          <div className="notice notice-ok sent-bar" role="status">
+            <span>
+              Sent {sentBar.count} {sentBar.count === 1 ? 'item' : 'items'} to {sentBar.tables.map((t) => `Table ${t}`).join(', ')}.
+            </span>
+            <CopyButton text={sentBar.pos} className="btn btn-ghost btn-sm" />
+            <button type="button" className="btn-icon" onClick={() => setSentBar(null)} aria-label="Dismiss">
+              <X size={18} strokeWidth={1.5} aria-hidden="true" />
+            </button>
+          </div>
         )}
         {verify?.kind === 'visit' && verifyCard}
         <CaptureCard
@@ -311,6 +382,24 @@ export function ServiceView({ shiftApi, onParsed, prefill }: Props) {
             setToast(null)
           }}
         />
+      )}
+
+      {confirmDiscard && verify && (
+        <ConfirmModal
+          title="Discard the items that weren't sent?"
+          confirmLabel="Discard"
+          danger
+          onCancel={cancelDiscard}
+          onConfirm={() => {
+            setConfirmDiscard(false)
+            setVerify(null)
+          }}
+        >
+          <p>
+            {verify.rows.length} {verify.rows.length === 1 ? 'item still needs' : 'items still need'} you and{' '}
+            {verify.rows.length === 1 ? "hasn't" : "haven't"} been sent. Items already sent stay on their tables.
+          </p>
+        </ConfirmModal>
       )}
 
       {pendingNotice && (

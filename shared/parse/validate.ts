@@ -4,12 +4,14 @@
 // action on the server's screen.
 import { RESTAURANT } from '../restaurant.js'
 import { CATEGORIES, FLAGS, PRIORITIES, type Category, type Flag, type Priority } from '../types.js'
-import { cleanString, cleanTaskText, isNearDuplicate, mentionedNumbers } from './text.js'
+import { cleanString, cleanTaskText, coveredByTasks, dedupeTokens, isNearDuplicate, mentionedNumbers } from './text.js'
 import {
   ALLERGY_NOTE,
   MAX_TASKS,
   type Clarification,
   type DraftTask,
+  type OpenTaskRef,
+  type Unavailable,
   type ParseContext,
   type ParseResult,
   type Rejection,
@@ -42,6 +44,24 @@ function soldOutItemIn(text: string): string | null {
   return RESTAURANT.soldOut.find((item) => lower.includes(item)) ?? null
 }
 
+/**
+ * The model's "unavailable" field, checked in code. Only a food item that shares no
+ * word with the menu counts as "not on the menu" (drinks aren't listed, so a Coke is
+ * never refused). Sold-out items are found by enforceRules from the text itself.
+ */
+export function notOnMenu(value: unknown, category: string): Unavailable | undefined {
+  const item = cleanString(value, 40).toLowerCase()
+  if (!item || category !== 'food' || soldOutItemIn(item)) return undefined
+  const words = dedupeTokens(item)
+  const onMenu = RESTAURANT.menu.some((m) => [...dedupeTokens(m)].some((w) => words.has(w)))
+  return onMenu ? undefined : { item, reason: 'not_on_menu' }
+}
+
+/** Drop "Which table?" questions about a request that already became a task. */
+export function dropCovered(clarifications: Clarification[], taskTexts: string[]): Clarification[] {
+  return clarifications.filter((c) => !c.request || !coveredByTasks(c.request, taskTexts))
+}
+
 /** Apply the safety rules in code to one task already known to be in the section. */
 export function enforceRules<T extends Omit<DraftTask, 'table'>>(task: T): T {
   const flags = new Set<Flag>(task.flags)
@@ -49,8 +69,10 @@ export function enforceRules<T extends Omit<DraftTask, 'table'>>(task: T): T {
 
   // Rule 6: sold-out item. Never an order task, always a "tell the guest" task.
   const soldOut = soldOutItemIn(text)
+  let unavailable = task.unavailable
   if (soldOut) {
     flags.add('86d')
+    unavailable = { item: soldOut, reason: 'sold_out' }
     if (!TELL_GUEST_RE.test(text)) {
       text = cleanTaskText(`Tell guest ${soldOut} is 86'd`)
       category = 'service'
@@ -69,7 +91,9 @@ export function enforceRules<T extends Omit<DraftTask, 'table'>>(task: T): T {
   if (COMPLAINT_RE.test(text)) flags.add('complaint')
   if (flags.has('complaint') || category === 'check') priority = 'high'
 
-  return { ...task, text, category, priority, note, flags: FLAGS.filter((f) => flags.has(f)) }
+  const out = { ...task, text, category, priority, note, flags: FLAGS.filter((f) => flags.has(f)) }
+  if (unavailable) out.unavailable = unavailable
+  return out
 }
 
 /**
@@ -114,11 +138,13 @@ export function validateParseResult(raw: unknown, ctx: ParseContext): ParseResul
       continue
     }
 
+    const category = pick<Category>(CATEGORIES, t.category, 'other')
     tasks.push(
       enforceRules({
         table,
         text,
-        category: pick<Category>(CATEGORIES, t.category, 'other'),
+        category,
+        ...(notOnMenu(t.unavailable, category) ? { unavailable: notOnMenu(t.unavailable, category) } : {}),
         priority: pick<Priority>(PRIORITIES, t.priority, 'normal'),
         flags: Array.isArray(t.flags)
           ? FLAGS.filter((f) => (t.flags as unknown[]).some((x) => typeof x === 'string' && x.toLowerCase() === f))
@@ -130,11 +156,14 @@ export function validateParseResult(raw: unknown, ctx: ParseContext): ParseResul
 
   // Duplicates within this note, and against tasks that are already open.
   const unique: DraftTask[] = []
+  const alreadyOpen: OpenTaskRef[] = []
   for (const task of tasks) {
     const dupOpen = ctx.openTasks.some((o) => o.table === task.table && isNearDuplicate(o.text, task.text))
     const dupBatch = unique.some((u) => u.table === task.table && isNearDuplicate(u.text, task.text))
-    if (dupOpen) skipped.push(`Table ${task.table}: ${task.text} (already open)`)
-    else if (!dupBatch) unique.push(task)
+    if (dupOpen) {
+      skipped.push(`Table ${task.table}: ${task.text} (already open)`)
+      alreadyOpen.push({ table: task.table, text: task.text })
+    } else if (!dupBatch) unique.push(task)
   }
 
   for (const c of Array.isArray(r.needs_clarification) ? r.needs_clarification.slice(0, 10) : []) {
@@ -146,10 +175,15 @@ export function validateParseResult(raw: unknown, ctx: ParseContext): ParseResul
     if (reason) rejected.push({ request: cleanString((x as Record<string, unknown>)?.request, 120), reason })
   }
 
+  // One item is never both a task and a "Which table?" question (the model sometimes
+  // returns both for "2 waters and napkins"). Already-open items aren't questions either.
+  const kept = unique.slice(0, MAX_TASKS)
+  const done = [...kept, ...alreadyOpen].map((t) => t.text)
   return {
-    tasks: unique.slice(0, MAX_TASKS),
-    needs_clarification: clarifications.slice(0, 10),
+    tasks: kept,
+    needs_clarification: dropCovered(clarifications, done).slice(0, 10),
     rejected: rejected.slice(0, 10),
     skipped,
+    alreadyOpen,
   }
 }

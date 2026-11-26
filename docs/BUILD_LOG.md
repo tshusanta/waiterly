@@ -487,3 +487,26 @@ A later run found that "table 1 needs two waters" read the quantity as 1, becaus
   - Only 1 of the 18 visit transcripts has a real-AI result.
   - No test with a real microphone or phone.
 
+
+## 2026-11-26 (night): check card handles mixed results
+
+**Student request:** one unclear or unavailable item must never block the rest. Tag the current version `v2-final-backup` first. Use mocked AI for most tests and at most 3 real-AI calls.
+
+- **Backup:** `v2-final-backup` was tagged and pushed before any change.
+- **The bug:** one unclear table disabled **Confirm** for the whole visit. A model could also return "2 waters and napkins" as T7 tasks *and* as "Which table?", so the same item was both ready and held.
+- **Per-item states** (`src/lib/verify.ts`): READY, HELD-TABLE, HELD-UNAVAILABLE, HELD-MISMATCH and ALREADY-OPEN. Each item is in exactly one.
+  - **Send ready items (N)** sends only the ready items.
+  - Each held item has one-tap fixes (table buttons, Replace/Remove, the two versions) and is sent the moment it's fixed.
+  - The card closes when nothing is left. A "Sent N items" bar offers Copy for POS, which only lists sent items.
+  - Discard asks while items are unsent.
+- **Server:**
+  - "Which table?" questions covered by a created or already-open task are dropped, in both validators.
+  - Sold-out items are kept and marked `unavailable`. The model's new `unavailable` field is trusted only for food not on the menu.
+  - `alreadyOpen` is now structured, and tables outside the section are red rejections in visits too.
+- **Prompt:** note rule 1 now says to return every request, including unclear or unavailable ones. Rule 6 covers dishes not on the menu and the `unavailable` field, and both schemas gained `unavailable`. "Chicken wings" was added to the fictional menu, because the demo visit orders wings. AI_DESIGN prompts were regenerated.
+- **UI:**
+  - Task text is a wrapping paragraph, never a cut-off input. The pencil opens a textarea.
+  - Quoted text (rejections, mismatches) uses the UI font. Monospace is used only for badges and table tags.
+- **Tests:** 205/205 (+14). Card UI 28/28 at 375 and 1440 px. **Real AI: 2 calls, 2/2 PASS** (TEST_RESULTS §8).
+- **Redeployed** with `npx vercel --prod`.
+
