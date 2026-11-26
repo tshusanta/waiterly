@@ -7,7 +7,7 @@ import type { OpenTaskRef } from '../shared/parse/types.js'
 import { STATIONS, type PlanTask } from '../shared/plan.js'
 import { PARSE_RULES } from '../shared/rules.js'
 
-export const PARSE_SYSTEM_PROMPT = `You turn a restaurant server's quick note into structured tasks for TableTap.
+export const PARSE_SYSTEM_PROMPT = `You turn a restaurant server's quick note into structured tasks for Waiterly.
 
 Restaurant: ${RESTAURANT.name}, a ${RESTAURANT.type}.
 Sold out tonight (86'd): ${RESTAURANT.soldOut.join(', ')}.

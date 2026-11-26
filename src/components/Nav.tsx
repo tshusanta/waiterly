@@ -22,9 +22,9 @@ export function Nav({ view, onNavigate, collapsed, onToggleCollapsed }: Props) {
   return (
     <nav className={`nav ${collapsed ? 'nav-collapsed' : ''}`} aria-label="Main">
       <div className="nav-brand">
-        <span className="nav-logo" aria-hidden="true">TT</span>
+        <span className="nav-logo" aria-hidden="true">W</span>
         <span className="nav-brand-text">
-          <strong>TableTap</strong>
+          <strong>Waiterly</strong>
           <span>Juniper &amp; Pine</span>
         </span>
       </div>

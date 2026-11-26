@@ -27,7 +27,7 @@ export function SettingsView({ shiftApi }: { shiftApi: ReturnType<typeof useShif
           <span className="mono muted">{selected.join(', ')}</span>
         </div>
         <p className="muted">
-          Pick the tables you're serving tonight (up to {MAX_SECTION_SIZE}). TableTap rejects requests for any other table.
+          Pick the tables you're serving tonight (up to {MAX_SECTION_SIZE}). Waiterly rejects requests for any other table.
         </p>
         <div className="table-picker" role="group" aria-label="Tables in your section">
           {all.map((t) => {

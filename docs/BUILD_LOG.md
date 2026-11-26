@@ -1,4 +1,4 @@
-# TableTap Build Log
+# Waiterly Build Log
 
 A chronological record of each phase: what was built, decisions made, problems hit and how they were solved. The **Who** column supports the course's AI use statement. "Agent" means Claude Code (Opus 5.5) wrote it, and "Student" means the student directed, decided or changed it.
 
@@ -30,7 +30,7 @@ A chronological record of each phase: what was built, decisions made, problems h
 
 **How it was tested**
 - `npm run build`: typecheck plus production build pass (223 kB JS, 70 kB gzip).
-- `npm run dev`: the server returns HTTP 200 with the TableTap shell.
+- `npm run dev`: the server returns HTTP 200 with the Waiterly shell.
 - `git status` was checked before committing: no `.env` and no `node_modules`.
 
 **Problems and fixes**
@@ -52,7 +52,7 @@ A chronological record of each phase: what was built, decisions made, problems h
 | Phase 1 debug shell in `App.tsx` | Agent | Lists open tasks with Done and Reset buttons, just to prove the wiring. Replaced in Phase 3. |
 
 **Decisions**
-- Storage is versioned (`tabletap.shift.v1`). If the stored data is corrupt or missing, the app quietly reseeds instead of crashing.
+- Storage is versioned (`waiterly.shift.v1`). If the stored data is corrupt or missing, the app quietly reseeds instead of crashing.
 - Storage failures (private mode, storage full) are caught, and the app keeps running in memory.
 
 **How it was tested:** `npm test` passes 15/15 Vitest tests. They cover:
@@ -230,6 +230,29 @@ A later run found that "table 1 needs two waters" read the quantity as 1, becaus
 
 **Problems and fixes**
 - **Phone overflow bug:** How it works was 603 px wide at 375 px. Cause: a `.sr-only` table-header label is `position: absolute`, and its scroll container wasn't positioned, so the label escaped to about x = 600. Fixed with `.table-scroll { position: relative }`. This also fixes the same latent issue in the Floor stats "Show as table" caption.
+
+---
+
+## 2026-11-25: Product renamed to Waiterly (student decision)
+
+**Decision (Student):** rename the product from "TableTap" to **Waiterly** everywhere. Lowercase `waiterly` is used for code identifiers and storage keys. This is the only place the old name is kept on purpose, as a record of the change. Earlier entries in this log were updated to the new name.
+
+| Changed | Who | Notes |
+|---|---|---|
+| UI | Agent | Sidebar wordmark, logo mark ("TT" became "W", font size raised to 16 px for a single letter), Settings copy, rejection messages shown to servers. |
+| `index.html` | Agent | `<title>Waiterly</title>`, plus a **new** `public/favicon.svg` (emerald "W" mark with `<title>` and `aria-label` "Waiterly"). The project had no favicon before, so there was no old alt text to rename. |
+| AI prompts and rules | Agent | `server/prompt.ts` ("structured tasks for Waiterly"), `shared/rules.ts` rule 8, and the allergy policy in `shared/restaurant.ts`, which is also sent to the model. |
+| Storage keys | Agent | `waiterly.shift.v1`, `waiterly.settings.v1`, `waiterly.nav.collapsed`. No migration was added because the app hasn't been deployed, so no tester has old data. Old keys left in the agent's own test browser were cleared. |
+| Package | Agent | `package.json` name `waiterly`. `package-lock.json` was regenerated with `npm install --package-lock-only`, not hand-edited. |
+| Docs and comments | Agent | `README.md`, `AGENT_PROMPT.md`, `docs/DESIGN_RULES.md`, `docs/BUILD_LOG.md`, the CSS header comment, and the dev plugin name `waiterly-api-dev`. |
+| File and variable names | — | None contained the old name, so nothing to rename. |
+
+**Verification**
+- Case-insensitive repo search for `table[\s_-]?tap` (excluding `node_modules`, and after rebuilding `dist/`): no matches apart from this entry.
+- File-name search: no matches.
+- In the browser: title "Waiterly", the wordmark reads "Waiterly", `/favicon.svg` is served as `image/svg+xml`, and the page text has no old name.
+- `npm test` passes 55/55, and `npm run build` is clean.
+- **Note:** earlier git commits still contain the old name. History was not rewritten, which would need a force-push and isn't worth the risk.
 
 ---
 

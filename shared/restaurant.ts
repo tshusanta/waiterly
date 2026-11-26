@@ -7,7 +7,7 @@ export const RESTAURANT = {
   soldOut: ['salmon', 'key lime pie'],
   freeRefills: ['water', 'iced tea', 'soda'],
   allergyPolicy:
-    'The server must confirm every allergy or dietary request with the kitchen. TableTap never says a dish is safe.',
+    'The server must confirm every allergy or dietary request with the kitchen. Waiterly never says a dish is safe.',
   menu: [
     'smash burger',
     'veggie burger',

@@ -3,8 +3,8 @@ import { normalizeTables } from '../../shared/restaurant'
 import type { SafeguardEvent, Settings, ShiftState, Task } from '../../shared/types'
 import { createSeedShift } from './seed'
 
-export const SHIFT_KEY = 'tabletap.shift.v1'
-export const SETTINGS_KEY = 'tabletap.settings.v1'
+export const SHIFT_KEY = 'waiterly.shift.v1'
+export const SETTINGS_KEY = 'waiterly.settings.v1'
 
 /** The localStorage subset we use, so tests can pass a fake. */
 export interface KeyValueStore {

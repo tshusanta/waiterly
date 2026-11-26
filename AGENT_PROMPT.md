@@ -1,6 +1,6 @@
-# Prompt for the coding agent: build TableTap
+# Prompt for the coding agent: build Waiterly
 
-You are building **TableTap**, a working prototype for a university final project (CIS 3100, Application of Generative AI, "Business AI Innovation Challenge"). Work step by step, from an empty folder to a deployed, publicly reachable app. Explain what you're doing at each phase, and test before moving on.
+You are building **Waiterly**, a working prototype for a university final project (CIS 3100, Application of Generative AI, "Business AI Innovation Challenge"). Work step by step, from an empty folder to a deployed, publicly reachable app. Explain what you're doing at each phase, and test before moving on.
 
 ---
 

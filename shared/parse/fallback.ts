@@ -131,7 +131,7 @@ export function fallbackParse(note: string): RawParse {
   if (INJECTION_RE.test(note)) {
     out.rejected.push({
       request: cleanString(note, 120),
-      reason: "Not a guest request. TableTap can't change rules, payments or comps.",
+      reason: "Not a guest request. Waiterly can't change rules, payments or comps.",
     })
     return out
   }

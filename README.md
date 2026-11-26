@@ -1,4 +1,4 @@
-# TableTap
+# Waiterly
 
 A tool for restaurant servers. Type or dictate a messy note ("1 needs waters, 4 wants ranch, 7 ready for the check split three ways") and Claude turns it into prioritized, per-table tasks that the server approves before they go live. A manager view shows wait times, request patterns and an AI shift summary.
 

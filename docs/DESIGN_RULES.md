@@ -1,14 +1,14 @@
-# TableTap Design Rules
+# Waiterly Design Rules
 
 These are the 10 rules I took from web research (November 25, 2026) on avoiding generic AI-generated UI. They apply on top of section 4 of the project spec. Where a source conflicts with the spec, the spec wins, and the conflict is noted.
 
 ## The 10 rules
 
-1. **Give the UI a specific identity before coding.** Generic output happens when the model has no strong product direction and falls back to the "median" of its training data. TableTap's identity is a POS or kitchen-display tool used with one hand during a rush. Each screen is checked against the question "would this be on a real restaurant terminal?"
+1. **Give the UI a specific identity before coding.** Generic output happens when the model has no strong product direction and falls back to the "median" of its training data. Waiterly's identity is a POS or kitchen-display tool used with one hand during a rush. Each screen is checked against the question "would this be on a real restaurant terminal?"
 
 2. **Don't use the AI-default palette.** Indigo, violet and purple gradients are the most recognizable mark of generated design. Use the slate-dark palette (`#0F172A` background, `#1E293B` cards, `#334155` borders, `#F8FAFC` text) with one emerald accent (`#10B981`) that only means "active or healthy". Amber means waiting and red means allergy or rejected. Nothing else gets color.
 
-3. **Avoid the default fonts.** Inter, Roboto and Arial are called out as the strongest typographic giveaway. TableTap uses **IBM Plex Sans** for UI text and **IBM Plex Mono** for table numbers, timers and badges. Plex comes from industrial and terminal design and has tabular figures, so wait times line up.
+3. **Avoid the default fonts.** Inter, Roboto and Arial are called out as the strongest typographic giveaway. Waiterly uses **IBM Plex Sans** for UI text and **IBM Plex Mono** for table numbers, timers and badges. Plex comes from industrial and terminal design and has tabular figures, so wait times line up.
 
 4. **Design in grayscale first, then add color for meaning.** Hierarchy comes from size, weight and spacing (Refactoring UI). If the screen reads correctly in grayscale, color only carries status, and status is also shown through form: pills, uppercase badges, wait chips.
 

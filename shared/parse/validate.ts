@@ -97,7 +97,7 @@ export function validateParseResult(raw: unknown, ctx: ParseContext): ParseResul
 
     // Rule 8 in code: no payment or comp actions, whatever the model says.
     if (PAYMENT_RE.test(text)) {
-      rejected.push({ request: text, reason: "Not a guest request. TableTap can't change payments or comps." })
+      rejected.push({ request: text, reason: "Not a guest request. Waiterly can't change payments or comps." })
       continue
     }
     // Rule 2 in code: the table must actually appear in the note.

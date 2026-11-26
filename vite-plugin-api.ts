@@ -4,7 +4,7 @@ import type { Plugin } from 'vite'
 
 export function apiDevPlugin(): Plugin {
   return {
-    name: 'tabletap-api-dev',
+    name: 'waiterly-api-dev',
     apply: 'serve',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {

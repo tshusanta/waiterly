@@ -16,7 +16,7 @@ const viewFromHash = (): View => {
 
 function readCollapsed(): boolean {
   try {
-    return localStorage.getItem('tabletap.nav.collapsed') === '1'
+    return localStorage.getItem('waiterly.nav.collapsed') === '1'
   } catch {
     return false
   }
@@ -51,7 +51,7 @@ export default function App() {
   const toggleCollapsed = () =>
     setCollapsed((c) => {
       try {
-        localStorage.setItem('tabletap.nav.collapsed', c ? '0' : '1')
+        localStorage.setItem('waiterly.nav.collapsed', c ? '0' : '1')
       } catch {
         /* storage unavailable */
       }
