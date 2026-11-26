@@ -256,6 +256,26 @@ A later run found that "table 1 needs two waters" read the quantity as 1, becaus
 
 ---
 
-## Phase 6: Testing
+## 2026-11-25: Phase 6, Testing (fallback path done; real-AI run pending the key)
+
+| Item | Who | Notes |
+|---|---|---|
+| `api/api.test.ts`: endpoint integration tests | Agent | **Decision:** without a key, the honest way to test the AI path is to call the real handlers with a **fake provider that misbehaves on purpose** (out-of-section table, payment action, invented table, "it's safe" allergy claim, `<script>`, 40 tasks, wrong JSON shape, timeout, ghost trip ids, invented summary numbers). This proves the safeguards are in code, not just in the prompt. It doesn't replace a real model run, and it isn't presented as one. |
+| More fallback edge cases | Agent | `table four` / `#7` / `T1`, out-of-section word numbers, mixed injection, gluten-free with "check if", new unnamed party, "cold water". |
+| `scripts/run-scenarios.mjs` with automatic checks | Agent | Each scenario now asserts the spec's expected outcome in code and prints PASS/FAIL with reasons. It saves the full JSON responses and exits non-zero on any failure. |
+| `docs/TEST_RESULTS.md` | Agent | Each scenario's input, expected result, pasted actual output and PASS/FAIL. Plus the safeguard integration table, edge cases, every bug found and fixed (10), and known limitations. **The real-AI section is explicitly marked PENDING.** |
+| `docs/test-output/fallback-local.json` | Agent | Raw responses from the fallback run. |
+
+**Results:** `npm test` passes 76/76 (+21 this phase). The scenario script passes 8/8 on the fallback path over HTTP.
+
+**Problem found:** `#7` wasn't recognised as a table, so "#7 needs straws" was **silently assigned to table 4** (carried from the previous clause). That's the fallback guessing a table. Fixed the regex, and a test now covers it. It's recorded in TEST_RESULTS as bug #10 and under limitations, because carry-forward is a heuristic and the review card is the backstop.
+
+**Decision noted in TEST_RESULTS:** if a fallback note contains an injection attempt anywhere, the *whole* note is rejected, even the legitimate part. This is conservative by design.
+
+**Still open:** the real Claude run of all scenarios, plus plan and summary (needs the key). Then the live-URL run in Phase 7.
+
+---
+
+## Phase 7: Deploy
 
 *(not started)*

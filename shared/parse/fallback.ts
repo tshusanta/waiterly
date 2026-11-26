@@ -22,7 +22,8 @@ export interface RawParse {
 }
 
 const NUM = `\\d{1,2}|twenty[\\s-]\\w+|${Object.keys(NUMBER_WORDS).join('|')}`
-const TABLE_EXPLICIT = new RegExp(`\\b(?:table|tbl|tb|t|#)\\s*-?\\s*(${NUM})\\b`, 'i')
+// "#" needs its own branch: \b can't match before a non-word character.
+const TABLE_EXPLICIT = new RegExp(`(?:\\b(?:table|tbl|tb|t)|#)\\s*-?\\s*(${NUM})\\b`, 'i')
 // A bare number at the start of a clause counts only when a verb follows ("4 wants ranch"),
 // so "two waters" isn't read as table 2.
 const TABLE_LEADING = new RegExp(
