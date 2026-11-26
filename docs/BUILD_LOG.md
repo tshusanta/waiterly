@@ -344,6 +344,35 @@ A later run found that "table 1 needs two waters" read the quantity as 1, becaus
 
 ---
 
-## Phase 8: Documentation
+## 2026-11-25: Phase 8, Documentation and final review (done)
 
-*(next)*
+| Item | Who | Notes |
+|---|---|---|
+| `docs/PROJECT_SUMMARY.md` | Agent | Problem, solution, users and value, the tech stack with *why* for each tool, a Mermaid architecture diagram (every path goes through the same validators and then the server's approval), the repo layout, the live URL and how to run it locally. Marked FALLBACK MODE up front. |
+| `docs/AI_DESIGN.md` | Agent | Where AI is and isn't used, the models and why, request settings for Claude and Gemini, **every prompt and schema word for word**, the validation layer step by step, the fallback logic and prompt-injection defence by layer. **Decision:** the prompts section is *generated* from `server/prompt.ts` by `npm run docs:prompts` (`scripts/build-ai-design.mjs`), and a unit test fails if the doc ever differs from the live prompts or schemas. |
+| `docs/RISKS_AND_LIMITATIONS.md` | Agent | 9 risks, each with mitigations and the **risk that remains**: misread table, allergy errors, prompt injection, API cost or outage, privacy (including that Chrome dictation sends audio to the browser vendor), over-reliance, fallback limits, real-AI behaviour not yet measured, data loss. Plus a diagram and table of where human oversight sits ([0] code checks, [1] server review, [2] completion, [3] manager review), and prototype limitations. |
+| `docs/DEMO_SCRIPT.md` | Agent | About 4 minutes, timed. Scenarios: Allergy, Unclear table, Prompt injection, plus trips, completion, manager view and How it works. It has *[Fallback]* and *[AI]* versions of each AI line so the narration matches whichever badge is on screen. |
+| Demo trip plan pinned by a test | Agent | **Caught while writing the script:** a draft line claimed "one drink run for two tables", which is wrong for the seed shift plus the Allergy scenario. Rewrote it to describe what the planner always does, and added a unit test that the demo path gives "Kitchen pass: Table 4" then "POS: Table 7". |
+| `npm run scenarios`, `npm run docs:prompts` | Agent | Convenience scripts. |
+| **Final forbid-list review** (spec §7) | Agent | On the **live site**, all 4 views were checked with details panels, the summary and the Reset modal opened. An automated computed-style scan found: no emoji, no gradients, no purple or pink surfaces, no backdrop blur, no shadows except the modal, no animation except the loading spinner, no centred headings, no left accent stripes, no pure `#000`, no transitions over 150 ms, and every text node in IBM Plex. A visual check of How it works (safeguards table) and Settings followed. **No issues found, so no fixes were needed.** |
+
+**How it was tested:** `npm test` passes 84/84 (+2: the doc-drift guard and the demo path). The prompts section was regenerated and verified by test.
+
+---
+
+## AI use statement summary (for the course's required statement)
+
+**Built by:** Claude Code (an AI coding agent, model Claude Opus 5.5), directed by the student over one session on 2026-11-25.
+
+| Area | Student | AI agent |
+|---|---|---|
+| Product idea, problem, requirements | **Wrote the full spec** (`AGENT_PROMPT.md`): problem, stack, phases, AI rules, safeguards, test scenarios, design rules | Summarized it back for confirmation before starting |
+| Key decisions | Install tools via winget. Continue without an API key. Make the provider swappable, then switchable by env var with Gemini as a second option. **Rename TableTap → Waiterly.** Deploy in FALLBACK MODE now. Use Vercel CLI login. Connect GitHub. | Proposed and explained options. Flagged trade-offs (for example, the Anthropic refusal fallback before using it). Chose implementation details within the spec. |
+| Code | Reviewed status after every phase, and said "continue" or redirected | Wrote all code: React UI, API functions, prompts, validators, fallback parser and planner, stats, tests, scripts |
+| Design | Set the design direction and forbid list (spec §4) | Did the web research for DESIGN_RULES.md. Chose fonts (IBM Plex) and the validated chart colours. Built the CSS. |
+| Testing | Defined the 7 scenario rows and expected results | Wrote 84 automated tests and the scenario runner. Tested in Chrome at desktop and 375 px. Found and fixed 10 bugs (TEST_RESULTS §5). |
+| Accounts and secrets | **Did all sign-ins personally:** GitHub push, Vercel login. Will add any API key themselves. | Never handled credentials. Kept keys server-side only. Fixed the `.gitignore` the Vercel CLI changed. Didn't open the CLI's token file. |
+| Deployment | Owns the GitHub repo and Vercel account | Linked the project, deployed and tested the live URL |
+| Docs | Required them in the spec | Wrote all docs in `docs/`, kept the build log every phase |
+
+**What the student should verify personally before submitting:** a private-window click-through on desktop and phone, the GitHub ↔ Vercel connection (optional), and real-AI results if a key is added (TEST_RESULTS §3 is PENDING until then).

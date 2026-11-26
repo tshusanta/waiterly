@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { PlanShapeError, fallbackPlan, readPlanTasks, validatePlan, type PlanTask } from './plan'
+import { createSeedShift } from '../src/state/seed'
+import { fallbackParse } from './parse/fallback'
+import { validateParseResult } from './parse/validate'
 
 const t = (id: string, o: Partial<PlanTask>): PlanTask => ({
   id, table: 1, text: 'Bring ranch', category: 'condiments', priority: 'normal', flags: [], waitMin: 1, ...o,
@@ -29,6 +32,22 @@ describe('fallbackPlan', () => {
 
   it('handles an empty list', () => {
     expect(fallbackPlan([])).toEqual([])
+  })
+})
+
+describe('demo script path (docs/DEMO_SCRIPT.md)', () => {
+  it('after the seed shift + Allergy scenario: kitchen for Table 4 first, then the POS for Table 7', () => {
+    const now = Date.UTC(2026, 10, 25, 19, 30)
+    const shift = createSeedShift(now, [1, 4, 7])
+    const note = 'table 4 the lady says she is allergic to peanuts, can we check the satay sauce. also lemon for her water'
+    const parsed = validateParseResult(fallbackParse(note), { note, assignedTables: [1, 4, 7], openTasks: [] })
+    const open = [
+      ...shift.tasks.filter((x) => x.doneAt === null),
+      ...parsed.tasks.map((x, i) => ({ ...x, id: `new${i}`, createdAt: now })),
+    ]
+    const trips = fallbackPlan(open.map((x) => ({ ...x, waitMin: Math.floor((now - x.createdAt) / 60_000) })))
+    expect(trips.map((x) => x.title).slice(0, 2)).toEqual(['Kitchen pass: Table 4', 'POS: Table 7'])
+    expect(trips).toHaveLength(3)
   })
 })
 

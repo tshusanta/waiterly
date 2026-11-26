@@ -4,7 +4,7 @@
 
 | Layer | What | Result |
 |---|---|---|
-| Unit + integration tests | `npm test` (Vitest, 7 files) | **82/82 pass** |
+| Unit + integration tests | `npm test` (Vitest, 7 files) | **84/84 pass** (includes the doc-drift guard and the demo-script trip plan) |
 | Spec scenarios, fallback path, local | `scripts/run-scenarios.mjs` against the dev server | **8/8 pass** |
 | Spec scenarios, fallback path, **live URL** | same script against https://waiterly.vercel.app | **8/8 pass** (Section 1b) |
 | Spec scenarios, real AI: Claude | same script, with `ANTHROPIC_API_KEY` | **PENDING** (no key) |
