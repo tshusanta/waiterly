@@ -1,0 +1,28 @@
+/* Phase 0 placeholder tokens. The full design system lands in Phase 3. */
+:root {
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --border: #334155;
+  --text: #f8fafc;
+  --muted: #94a3b8;
+  --accent: #10b981;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --border: #cbd5e1;
+    --text: #0f172a;
+    --muted: #475569;
+    --accent: #047857;
+    color-scheme: light;
+  }
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; }
+.shell { padding: 24px; }
+.shell h1 { display: flex; align-items: center; gap: 8px; font-size: 20px; margin: 0 0 8px; }
+.muted { color: var(--muted); margin: 4px 0; }
