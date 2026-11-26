@@ -103,6 +103,71 @@ A later run found that "table 1 needs two waters" read the quantity as 1, becaus
 
 ---
 
-## Phase 3: Server view
+## 2026-11-25: Decision, build Phase 3–6 in FALLBACK MODE (student)
+
+**Decision (Student):** continue without an API key for now. Everything must keep working in FALLBACK MODE, and the AI provider must be swappable in one file. The student will add `ANTHROPIC_API_KEY` before Phase 7 (deploy).
+
+**Consequences**
+- Every AI feature (parse, plan, and the Phase 4 summary) has a deterministic fallback that is a real feature, not a stub.
+- No mock or scripted "AI" responses were added. The spec forbids fake AI output, so without a key the UI honestly shows `FALLBACK MODE`.
+- The real Claude path is still untested. It must be run against all scenarios as soon as the key is added, before or during Phase 7. This is tracked as an open item.
+
+**Provider abstraction (Agent):**
+- `server/providers/types.ts` defines `AiProvider` (`isConfigured`, `parseNote`, `planTrips`). Providers return raw JSON only.
+- `server/providers/anthropic.ts` is the Claude implementation.
+- **`server/provider.ts` is the single swap point**: one line, `export const provider = anthropicProvider`.
+- Prompts (`server/prompt.ts`), validation (`shared/parse/validate.ts`, `shared/plan.ts`) and fallbacks are provider-independent. A new provider can't bypass the safeguards because its output goes through the same validators.
+- The old `server/ai.ts` was removed, and `api/parse.ts`, `api/plan.ts` and `api/health.ts` now call `provider`.
+
+---
+
+## 2026-11-25: Phase 3, Server view (done, in FALLBACK MODE)
+
+| Item | Who | Notes |
+|---|---|---|
+| App shell: collapsible sidebar (240 px, or a 64 px icon rail) that becomes a bottom tab bar under 768 px | Agent | Sections are Service, Floor stats, How it works and Settings. Hash routing keeps the view on refresh. The collapse state is remembered per browser. Floor stats and How it works are placeholders until Phases 4 and 5. |
+| Quick capture | Agent | Labeled textarea with a live `n/600` counter. "Organize with AI" button and Ctrl/Cmd+Enter. A Web Speech mic button that is **hidden** where unsupported, with a clear error if the mic is blocked. 6 scenario chips. Empty notes are caught in the browser with no request sent. |
+| AI status badge | Agent | `AI ONLINE` / `FALLBACK MODE`, taken from `/api/health` on load and then from the `source` of the last real parse. |
+| Review card (human in the loop) | Agent | Nothing reaches the tables without approval. Each task has an editable table dropdown (section tables only), editable text and a remove button. Shows category, priority and flag badges, with the allergy note in red. Clarifications appear in amber with "Edit note", rejections in red with the reason, and skipped duplicates are listed. Buttons: "Add N tasks" and "Discard". Approved text is re-cleaned with the same `cleanTaskText` the server uses. |
+| Table cards | Agent | Filter chips (All plus each table). Open tasks sorted by priority, then age. A round 44 px checkbox, a category pill, flag badges, a live wait time, and an amber `WAITING N MIN` badge at 5+ minutes (refreshed every 15 s). Completed tasks sit in a collapsed `<details>` list with done time, "took N min" and Undo. |
+| Next move | Agent | A rule-based tip that updates live, in priority order: allergy, complaint, tables sharing a station ("Tables 1 and 4 both need drinks"), longest wait over 5 min, open check. "Plan my next trips" calls `POST /api/plan`. |
+| `POST /api/plan` + `shared/plan.ts` | Agent | AI plan (Haiku, structured output) or a deterministic planner: allergies, then complaints, then checks, then longest waits, grouped by station, at most 3 trips. `validatePlan` keeps only real task ids, each used once, caps trips and re-sorts urgent trips first. Input is sanitized and rate-limited to 20/min per IP. |
+| Settings | Agent | A section picker (tables 1–30, 44 px toggles, 1–8 tables). **Reset shift** goes through an in-app confirmation modal (Esc cancels, focus starts on Cancel and is trapped) and never uses `confirm()`. Plus an "About this demo" synthetic-data note. |
+| Offline fallback in the browser (`src/lib/api.ts`) | Agent | If `/api` can't be reached at all, the same shared fallback parser or planner runs in the browser and says so. |
+| Design system (`src/styles.css`) | Agent | Tokens from DESIGN_RULES.md. Self-hosted IBM Plex Sans and Mono (`@fontsource`, no external font requests). Uppercase mono status badges. 150 ms ease-out. `prefers-reduced-motion` respected. Light theme through `prefers-color-scheme`. |
+
+**How it was tested** (Chrome automation against the dev server)
+- **Desktop, 1376 px:**
+  - The seed data renders on first load.
+  - The Allergy chip, then Organize, gives a review card with "Check satay sauce for peanuts" (ALLERGY, HIGH, kitchen note) and "Bring lemon for water", with the FALLBACK PARSED badge and notice. Add 2 tasks puts both on Table 4.
+  - "Plan my next trips" gives Trip 1 at the kitchen pass with both Table 4 allergy tasks, then Trip 2 at the POS for the Table 7 check.
+  - Check-off moves a task to Completed and saves to localStorage. Undo restores it.
+  - The approved allergy task appears in the safeguard log.
+- **Phone, 375 px** (rendered in a 375 px iframe because the Chrome window wouldn't resize that small):
+  - `scrollWidth` is 360, so there's no horizontal scroll.
+  - The nav is fixed at the bottom.
+  - Every interactive element is at least 44 px.
+  - The Reset modal opens with focus on Cancel, and confirming reseeds 6 open + 6 done.
+- **Keyboard:** an empty submit shows "Type or dictate a note first." with **0** API calls. Ctrl+Enter submits.
+- **Contrast** (WCAG, computed from the tokens): every text/background pair passes AA in both themes. The lowest is red on a dark card at 5.29:1.
+- **Forbid-list scan of `src/`:** no emoji, purple, indigo, violet, gradients, `#000000` or backdrop blur. The only `box-shadow` is on the modal, which is allowed.
+- **Unit tests:** 42/42 pass, including 7 new planner tests. `npm run build` is clean.
+
+**Problems and fixes**
+1. Table cards in the same grid row stretched to equal height, leaving empty blocks. Fixed with `align-items: start`.
+2. The "Trip 1" label ran into the trip title. Fixed with a flex gap.
+3. The allergy note in the review card wasn't red. Fixed to match the table cards.
+4. "took Just now" read badly. Fixed by adding `formatDuration` (`<1 min`).
+5. The "All" chip was 42 px wide, under the 44 px target. Fixed with `min-width: 44px`.
+6. "Section 1, 4, 7" wrapped mid-list on phones. Fixed with `nowrap`.
+7. **Real bug found by a new unit test:** `validatePlan` blocked a task id reused across trips but not one repeated inside the same trip. Fixed.
+
+**Open items**
+- Live AI test once the key is added.
+- Verify `.js` import resolution on Vercel (Phase 7).
+
+---
+
+## Phase 4: Manager view
 
 *(not started)*

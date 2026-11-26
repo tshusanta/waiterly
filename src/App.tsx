@@ -1,33 +1,88 @@
-import { UtensilsCrossed } from 'lucide-react'
-import { RESTAURANT } from '../shared/restaurant'
-import { doneTasks, openTasks } from './state/shift'
+import { useCallback, useEffect, useState } from 'react'
+import { AiStatusBadge } from './components/Badge'
+import { NAV_ITEMS, Nav, type View } from './components/Nav'
+import { getHealth } from './lib/api'
 import { useShift } from './state/useShift'
+import { ServiceView } from './views/service/ServiceView'
+import { SettingsView } from './views/SettingsView'
 
-// Phase 1 shell: proves the data model, seed and localStorage are wired up.
-// The real Service / Floor stats views are built in Phase 3 and 4.
+const VIEWS: View[] = ['service', 'stats', 'how', 'settings']
+const viewFromHash = (): View => {
+  const h = window.location.hash.slice(1) as View
+  return VIEWS.includes(h) ? h : 'service'
+}
+
+function readCollapsed(): boolean {
+  try {
+    return localStorage.getItem('tabletap.nav.collapsed') === '1'
+  } catch {
+    return false
+  }
+}
+
 export default function App() {
-  const { shift, settings, completeTask, resetShift } = useShift()
-  const open = openTasks(shift)
+  const shiftApi = useShift()
+  const [view, setView] = useState<View>(viewFromHash)
+  const [collapsed, setCollapsed] = useState(readCollapsed)
+  // AI status: health check on load, then whatever the last real parse returned.
+  const [aiMode, setAiMode] = useState<'ai' | 'fallback' | 'checking'>('checking')
+
+  useEffect(() => {
+    getHealth().then((h) => setAiMode((m) => (m === 'checking' ? (h.aiConfigured ? 'ai' : 'fallback') : m)))
+  }, [])
+
+  useEffect(() => {
+    const onHash = () => setView(viewFromHash())
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+
+  const navigate = useCallback((v: View) => {
+    window.history.pushState(null, '', `#${v}`)
+    setView(v)
+    window.scrollTo(0, 0)
+  }, [])
+
+  const toggleCollapsed = () =>
+    setCollapsed((c) => {
+      try {
+        localStorage.setItem('tabletap.nav.collapsed', c ? '0' : '1')
+      } catch {
+        /* storage unavailable */
+      }
+      return !c
+    })
+
+  const title = NAV_ITEMS.find((n) => n.id === view)!.label
 
   return (
-    <main className="shell">
-      <h1>
-        <UtensilsCrossed size={20} strokeWidth={1.5} aria-hidden="true" /> TableTap
-      </h1>
-      <p className="muted">
-        {RESTAURANT.name} · Section {settings.assignedTables.join(', ')} · {open.length} open,{' '}
-        {doneTasks(shift).length} done
-      </p>
-      <ul>
-        {open.map((t) => (
-          <li key={t.id}>
-            <button onClick={() => completeTask(t.id)}>Done</button> Table {t.table} · {t.text} ·{' '}
-            {t.priority}
-            {t.flags.length ? ` · ${t.flags.join(', ').toUpperCase()}` : ''}
-          </li>
-        ))}
-      </ul>
-      <button onClick={resetShift}>Reset shift</button>
-    </main>
+    <div className={`app ${collapsed ? 'app-collapsed' : ''}`}>
+      <Nav view={view} onNavigate={navigate} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
+      <main className="main" id="main">
+        <header className="page-head">
+          <div>
+            <h1>{title}</h1>
+            <p className="muted">
+              Juniper &amp; Pine · Section <span className="mono">{shiftApi.settings.assignedTables.join(', ')}</span>
+            </p>
+          </div>
+          <AiStatusBadge mode={aiMode} />
+        </header>
+
+        {view === 'service' && <ServiceView shiftApi={shiftApi} onParsed={setAiMode} />}
+        {view === 'settings' && <SettingsView shiftApi={shiftApi} />}
+        {(view === 'stats' || view === 'how') && (
+          <section className="card">
+            <p className="muted">
+              {view === 'stats' ? 'Floor stats is built in Phase 4.' : 'How it works is built in Phase 5.'}
+            </p>
+          </section>
+        )}
+
+        <footer className="footer muted small">
+          Synthetic demo data. No real guests, names or payments. Your shift is saved in this browser only.
+        </footer>
+      </main>
+    </div>
   )
 }
