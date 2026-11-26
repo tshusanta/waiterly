@@ -120,6 +120,8 @@ describe('table-visit transcripts with mocked Gemini replies (same checks as a l
     const req = google.requests[0]
     expect(req.config.systemInstruction).toBe(VISIT_SYSTEM_PROMPT)
     expect(req.config.responseJsonSchema).toEqual(VISIT_SCHEMA)
+    // Visits get the longer 25 s budget (15 s gave live 504s).
+    expect((req.config.httpOptions as { timeout: number }).timeout).toBeGreaterThan(20_000)
     expect(req.contents).toContain(`<transcript>\n${v.transcript}\n</transcript>`)
     expect(req.contents).toContain(v.startTable === null ? 'Starting table: none' : `Starting table: ${v.startTable} (`)
   })
@@ -207,6 +209,12 @@ describe('visit limits and fallback', () => {
     expect(body.source).toBe('fallback')
     expect(body.tasks.length).toBeGreaterThan(0)
     expect(body.tasks.every((x: { table: null; tableStatus: string }) => x.table === null && x.tableStatus === 'missing')).toBe(true)
+  })
+
+  it('fallback does not turn small talk into tasks', async () => {
+    google.replies.push({ status: 504, message: 'Deadline expired' })
+    const body = await (await sendVisit({ transcript: 'hi folks welcome to Juniper and Pine how is everyone doing tonight two waters please', startTable: 4 })).json()
+    expect(body.tasks.map((x: { text: string }) => x.text)).toEqual(['Bring 2 waters'])
   })
 
   it('fallback applies a spoken self-correction', async () => {

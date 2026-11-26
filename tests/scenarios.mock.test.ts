@@ -154,6 +154,7 @@ describe('spec scenarios with mocked Gemini replies (same checks as the live run
       expect(req.config).toMatchObject({ responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'LOW' } })
       expect(req.config.systemInstruction).toEqual(expect.any(String))
       expect(req.config.responseJsonSchema).toEqual(expect.any(Object))
+      expect((req.config.httpOptions as { timeout: number }).timeout).toBeLessThanOrEqual(15_000) // notes keep 15 s
       if (s.note) expect(req.contents).toContain(`<note>\n${s.note}\n</note>`) // note is wrapped as data
     }
   })

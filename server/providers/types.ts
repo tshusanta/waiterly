@@ -41,3 +41,9 @@ export class AiNotConfiguredError extends AiUnavailableError {
 }
 
 export const AI_TIMEOUT_MS = 15_000
+/**
+ * A visit transcript is longer and the answer bigger (changes, mismatches). It is
+ * organized after the server leaves the table, so it gets more time: live, 15 s
+ * gave Gemini 504 DEADLINE_EXCEEDED on visits (2026-11-26). Fits the 30 s function limit.
+ */
+export const VISIT_TIMEOUT_MS = 25_000

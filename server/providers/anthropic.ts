@@ -15,7 +15,7 @@ import {
   buildSummaryUserMessage,
   buildVisitUserMessage,
 } from '../prompt.js'
-import { AI_TIMEOUT_MS, AiNotConfiguredError, AiUnavailableError, type AiProvider } from './types.js'
+import { AI_TIMEOUT_MS, VISIT_TIMEOUT_MS, AiNotConfiguredError, AiUnavailableError, type AiProvider } from './types.js'
 
 const MODELS = {
   parse: 'claude-haiku-5-5', // fast, cheap, structured extraction
@@ -32,14 +32,17 @@ function getClient(): Anthropic {
 }
 
 /** One structured-output call. Returns the parsed JSON object. */
-async function structuredCall(model: string, system: string, user: string, schema: object): Promise<unknown> {
-  const response = await getClient().messages.create({
+async function structuredCall(model: string, system: string, user: string, schema: object, timeout = AI_TIMEOUT_MS): Promise<unknown> {
+  const response = await getClient().messages.create(
+    {
     model,
     max_tokens: 4096,
     system,
     output_config: { effort: 'low', format: { type: 'json_schema', schema: schema as Record<string, unknown> } },
     messages: [{ role: 'user', content: user }],
-  })
+    },
+    { timeout },
+  )
   if (response.stop_reason !== 'end_turn') {
     throw new AiUnavailableError(`Model stopped early: ${response.stop_reason}`)
   }
@@ -78,7 +81,7 @@ export const anthropicProvider: AiProvider = {
   parseNote: ({ note, section, openTasks }) =>
     structuredCall(MODELS.parse, PARSE_SYSTEM_PROMPT, buildParseUserMessage(note, section, openTasks), PARSE_SCHEMA),
   parseVisit: (input) =>
-    structuredCall(MODELS.parse, VISIT_SYSTEM_PROMPT, buildVisitUserMessage(input), VISIT_SCHEMA),
+    structuredCall(MODELS.parse, VISIT_SYSTEM_PROMPT, buildVisitUserMessage(input), VISIT_SCHEMA, VISIT_TIMEOUT_MS),
   planTrips: ({ tasks }) =>
     structuredCall(MODELS.plan, PLAN_SYSTEM_PROMPT, buildPlanUserMessage(tasks), PLAN_SCHEMA),
   summarizeShift: ({ stats }) => summaryCall(stats),

@@ -20,7 +20,7 @@ import {
   buildSummaryUserMessage,
   buildVisitUserMessage,
 } from '../prompt.js'
-import { AI_TIMEOUT_MS, AiNotConfiguredError, AiUnavailableError, type AiProvider } from './types.js'
+import { AI_TIMEOUT_MS, VISIT_TIMEOUT_MS, AiNotConfiguredError, AiUnavailableError, type AiProvider } from './types.js'
 
 export const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash'
 
@@ -64,9 +64,9 @@ export function retryTimeoutMs(remainingMs: number): number | null {
   return left >= MIN_GEMINI_DEADLINE_MS ? left : null
 }
 
-async function structuredCall(system: string, user: string, schema: object): Promise<unknown> {
+async function structuredCall(system: string, user: string, schema: object, budgetMs = AI_TIMEOUT_MS): Promise<unknown> {
   const model = geminiModel()
-  const deadline = Date.now() + AI_TIMEOUT_MS // one 15 s budget for the whole call, retry included
+  const deadline = Date.now() + budgetMs // one budget for the whole call, retry included
   const attempt = () => {
     const remaining = Math.max(MIN_GEMINI_DEADLINE_MS, deadline - Date.now())
     return getClient().models.generateContent({
@@ -108,7 +108,7 @@ export const geminiProvider: AiProvider = {
   isConfigured: () => Boolean(process.env.GEMINI_API_KEY),
   parseNote: ({ note, section, openTasks }) =>
     structuredCall(PARSE_SYSTEM_PROMPT, buildParseUserMessage(note, section, openTasks), PARSE_SCHEMA),
-  parseVisit: (input) => structuredCall(VISIT_SYSTEM_PROMPT, buildVisitUserMessage(input), VISIT_SCHEMA),
+  parseVisit: (input) => structuredCall(VISIT_SYSTEM_PROMPT, buildVisitUserMessage(input), VISIT_SCHEMA, VISIT_TIMEOUT_MS),
   planTrips: ({ tasks }) => structuredCall(PLAN_SYSTEM_PROMPT, buildPlanUserMessage(tasks), PLAN_SCHEMA),
   summarizeShift: ({ stats }) => structuredCall(SUMMARY_SYSTEM_PROMPT, buildSummaryUserMessage(stats), SUMMARY_SCHEMA),
 }
