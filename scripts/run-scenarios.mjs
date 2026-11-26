@@ -2,18 +2,20 @@
 // spec's expected outcome, and print (and optionally save) what came back.
 //
 // Usage: node scripts/run-scenarios.mjs [baseUrl] [flags]
-//   --only "Allergy,Shift summary"  run just these scenarios (names from scenario-spec.mjs)
+//   --only "Allergy,Shift summary"  run just these (names from scenario-spec.mjs; use | between
+//                      names that contain commas, e.g. "Visit: replacement|Visit: card, plain read-back")
 //   --max-ai-calls N   hard cap on requests that can reach the AI. Default: 8 for any
 //                      non-local URL (protects the 20/day Gemini free tier), unlimited locally.
 //   --require-ai       a fallback answer counts as FAIL (use when testing the real model)
 //   --delay ms         pause between requests
 //   --parse-only       skip the trip plan and shift summary
+//   --visits           also offer the 18 table-visit transcripts (pick some with --only)
 //   --json out.json    save the raw results (never overwrites; adds a timestamp)
 //
 // Free-tier budgeting: each AI-bound request is one Gemini call, or two if Google
 // answers 503 and the server retries once. Validation scenarios (empty / too long)
 // are refused before any AI call and are not counted.
-import { SCENARIOS, EXTRAS, SECTION } from './scenario-spec.mjs'
+import { SCENARIOS, EXTRAS, SECTION, VISITS } from './scenario-spec.mjs'
 
 const base = process.argv[2]?.startsWith('http') ? process.argv[2] : 'http://localhost:5173'
 const argValue = (flag) => (process.argv.includes(flag) ? process.argv[process.argv.indexOf(flag) + 1] : null)
@@ -22,11 +24,28 @@ const delayMs = Number(argValue('--delay') ?? 0)
 const requireAi = process.argv.includes('--require-ai')
 const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(base)
 const maxAiCalls = Number(argValue('--max-ai-calls') ?? (isLocal ? Infinity : 8))
-const only = argValue('--only')?.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
+const only = argValue('--only')?.split(/[|;]/.test(argValue('--only')) ? /[|;]/ : ',').map((s) => s.trim().toLowerCase()).filter(Boolean)
 
 const all = [
   ...SCENARIOS.map((s) => ({ ...s, path: '/api/parse', payload: { note: s.note, ...SECTION } })),
   ...(process.argv.includes('--parse-only') ? [] : EXTRAS.map((x) => ({ ...x, usesAi: true }))),
+  ...(process.argv.includes('--visits')
+    ? VISITS.map((v) => ({
+        ...v,
+        usesAi: true,
+        path: '/api/parse',
+        payload: { mode: 'visit', transcript: v.transcript, startTable: v.startTable, ...SECTION },
+        print(b) {
+          for (const t of b.tasks ?? []) {
+            console.log(`  task  T${t.table ?? '?'}  [${t.tableSource}/${t.tableStatus}]  ${t.priority.padEnd(6)} ${t.text}${t.flags.length ? `  [${t.flags.join(',')}]` : ''}${t.changes?.length ? `  changes: ${t.changes.join('; ')}` : ''}${t.tableMessage ? `  (${t.tableMessage})` : ''}`)
+          }
+          for (const c of b.changes ?? []) console.log(`  changed  ${c}`)
+          for (const m of b.mismatches ?? []) console.log(`  mismatch  guest "${m.guest}" vs read-back "${m.readBack}" (task ${m.taskIndex})`)
+          for (const c of b.tableCorrections ?? []) console.log(`  corrected  table ${c.from} -> ${c.to}`)
+          for (const r of b.rejected ?? []) console.log(`  rej   ${r.request} -> ${r.reason}`)
+        },
+      }))
+    : []),
 ]
 const selected = only ? all.filter((s) => only.includes(s.name.toLowerCase())) : all
 if (only && selected.length !== only.length) {

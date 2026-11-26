@@ -5,6 +5,14 @@ import type { OpenTaskRef } from '../../shared/parse/types.js'
 import type { PlanTask } from '../../shared/plan.js'
 import type { ShiftStats } from '../../shared/stats.js'
 
+export interface VisitInput {
+  transcript: string
+  trimmed: boolean
+  startTable: number | null
+  section: number[]
+  openTasks: OpenTaskRef[]
+}
+
 export type ProviderName = 'anthropic' | 'gemini' | 'none'
 
 export interface AiProvider {
@@ -16,6 +24,8 @@ export interface AiProvider {
   /** False when no key is set. The app then runs in FALLBACK MODE. */
   isConfigured(): boolean
   parseNote(input: { note: string; section: number[]; openTasks: OpenTaskRef[] }): Promise<unknown>
+  /** A table-visit transcript (mode "visit"): same safety rules, plus final-state and table rules. */
+  parseVisit(input: VisitInput): Promise<unknown>
   planTrips(input: { tasks: PlanTask[] }): Promise<unknown>
   summarizeShift(input: { stats: ShiftStats }): Promise<unknown>
 }

@@ -1,15 +1,24 @@
-import { useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Mic } from 'lucide-react'
 import { cleanTaskText } from '../../../shared/parse/text'
+import { quickTapTask } from '../../../shared/quickTap'
+import type { Clarification, Rejection } from '../../../shared/parse/types'
 import type { SafeguardEvent, Task } from '../../../shared/types'
-import { ApiMessageError, parseNote } from '../../lib/api'
+import { ConfirmModal } from '../../components/Modal'
+import { UndoToast } from '../../components/UndoToast'
+import { ApiMessageError, parseNote, parseVisit } from '../../lib/api'
+import { getSpeechRecognition } from '../../lib/speech'
 import { useNow } from '../../lib/time'
+import { fromParseResponse, fromVisitResponse, readiness, type VerifyState } from '../../lib/verify'
+import { MIC_NOTICE_TEXT, startVisitRecorder, type VisitEndReason, type VisitRecorder } from '../../lib/visitRecorder'
 import { makeId } from '../../state/id'
 import { doneTasks, openTasks } from '../../state/shift'
 import type { useShift } from '../../state/useShift'
 import { CaptureCard } from './CaptureCard'
-import { ReviewCard, type ReviewState } from './ReviewCard'
 import { SuggestionCard } from './SuggestionCard'
 import { TableBoard } from './TableBoard'
+import { VerificationCard } from './VerificationCard'
+import { AnalyzingBar, ListeningBar, TypedVisitCard } from './VisitBar'
 
 type ShiftApi = ReturnType<typeof useShift>
 
@@ -19,23 +28,81 @@ interface Props {
   prefill: { note: string; id: number } | null
 }
 
+const MIC_NOTICE_KEY = 'waiterly.micNotice.v1'
+
+function micNoticeSeen(): boolean {
+  try {
+    return localStorage.getItem(MIC_NOTICE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+interface Visit {
+  table: number | null
+  startedAt: number
+  finalText: string
+  interim: string
+  phase: 'listening' | 'analyzing'
+}
+
+const NOT_SUPPORTED = "Voice input isn't supported in this browser (for example on some iPhones). Type the visit instead."
+const END_NOTES: Partial<Record<VisitEndReason, string>> = {
+  cap: 'The visit reached the 10-minute limit, so listening stopped there.',
+}
+
 export function ServiceView({ shiftApi, onParsed, prefill }: Props) {
-  const { shift, settings, addTasks, completeTask, undoTask, addLogEvents } = shiftApi
+  const { shift, settings, addTasks, completeTask, undoTask, removeTask, addLogEvents } = shiftApi
   const now = useNow()
   const [note, setNote] = useState(prefill?.note ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [review, setReview] = useState<ReviewState | null>(null)
+  const [verify, setVerify] = useState<VerifyState | null>(null)
+  const [visit, setVisit] = useState<Visit | null>(null)
+  const [typedVisit, setTypedVisit] = useState<{ table: number | null; reason: string } | null>(null)
+  const [visitMsg, setVisitMsg] = useState<string | null>(null)
+  const [pendingNotice, setPendingNotice] = useState<{ table: number | null } | null>(null)
+  const [toast, setToast] = useState<{ message: string; taskId: string; key: number } | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const verifyRef = useRef<HTMLDivElement>(null)
+  const recorderRef = useRef<VisitRecorder | null>(null)
+  const mounted = useRef(true)
 
   const open = openTasks(shift)
   const done = doneTasks(shift)
   const tables = settings.assignedTables
+  // The recorder calls back later; read the latest section and open tasks from refs.
+  const latest = useRef({ open, tables })
+  latest.current = { open, tables }
+
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      recorderRef.current?.stop()
+    }
+  }, [])
+
+  // Bring a new verification card into view (it may be far above the table the server is at).
+  useEffect(() => {
+    if (verify?.kind === 'visit') verifyRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  }, [verify?.kind, verify?.rows.length])
+
+  const logQuestions = useCallback(
+    (rejected: Rejection[], clarifications: Clarification[]) => {
+      const at = Date.now()
+      addLogEvents([
+        ...rejected.map((r): SafeguardEvent => ({ id: makeId(), at, kind: 'rejected', table: null, text: `${r.request ? `${r.request}: ` : ''}${r.reason}` })),
+        ...clarifications.map((c): SafeguardEvent => ({ id: makeId(), at, kind: 'clarification', table: null, text: c.question })),
+      ])
+    },
+    [addLogEvents],
+  )
 
   async function organize() {
     const trimmed = note.trim()
     if (!trimmed) {
-      setError('Type or dictate a note first.')
+      setError('Type a note first.')
       textareaRef.current?.focus()
       return
     }
@@ -44,20 +111,8 @@ export function ServiceView({ shiftApi, onParsed, prefill }: Props) {
     try {
       const res = await parseNote(trimmed, tables, open.map((t) => ({ table: t.table, text: t.text })))
       onParsed(res.source)
-      setReview({
-        source: res.source,
-        notice: res.notice,
-        rows: res.tasks.map((t) => ({ ...t, key: makeId() })),
-        clarifications: res.needs_clarification,
-        rejected: res.rejected,
-        skipped: res.skipped,
-      })
-      // Safeguard log: questions and rejections are recorded when they happen.
-      const at = Date.now()
-      addLogEvents([
-        ...res.rejected.map((r): SafeguardEvent => ({ id: makeId(), at, kind: 'rejected', table: null, text: `${r.request ? `${r.request}: ` : ''}${r.reason}` })),
-        ...res.needs_clarification.map((c): SafeguardEvent => ({ id: makeId(), at, kind: 'clarification', table: null, text: c.question })),
-      ])
+      setVerify(fromParseResponse(res, makeId))
+      logQuestions(res.rejected, res.needs_clarification)
     } catch (e) {
       setError(e instanceof ApiMessageError ? e.message : 'Something went wrong. Try again.')
     } finally {
@@ -65,12 +120,83 @@ export function ServiceView({ shiftApi, onParsed, prefill }: Props) {
     }
   }
 
-  function approve() {
-    if (!review) return
+  async function analyzeVisit(table: number | null, transcript: string, endNote?: string) {
+    setTypedVisit(null)
+    setVisit((v) => ({ table, startedAt: v?.startedAt ?? Date.now(), finalText: transcript, interim: '', phase: 'analyzing' }))
+    try {
+      const { open: o, tables: t } = latest.current
+      const res = await parseVisit(transcript, table, t, o.map((x) => ({ table: x.table, text: x.text })))
+      if (!mounted.current) return
+      onParsed(res.source)
+      setVerify(fromVisitResponse(res, table, makeId))
+      logQuestions(res.rejected, res.needs_clarification)
+      setVisitMsg(endNote ?? null)
+    } catch (e) {
+      if (!mounted.current) return
+      setVisitMsg(e instanceof ApiMessageError ? e.message : 'Something went wrong organizing the visit. Try again.')
+    } finally {
+      if (mounted.current) setVisit(null)
+    }
+  }
+
+  function onVisitEnd(table: number | null, reason: VisitEndReason, transcript: string, err?: string) {
+    recorderRef.current = null
+    if (!mounted.current) return
+    if (!transcript.trim()) {
+      setVisit(null)
+      if (reason === 'error' && err && /blocked|turned off|No microphone|language/i.test(err)) {
+        setTypedVisit({ table, reason: err })
+      } else {
+        setVisitMsg(
+          reason === 'silence'
+            ? 'No speech for 20 seconds, so the visit ended. Nothing was added.'
+            : err ?? "Didn't hear anything, so nothing was added. Try again or tap a quick button.",
+        )
+      }
+      return
+    }
+    void analyzeVisit(table, transcript, err ?? END_NOTES[reason])
+  }
+
+  function beginListening(table: number | null) {
+    const Recognition = getSpeechRecognition()
+    if (!Recognition) {
+      setTypedVisit({ table, reason: NOT_SUPPORTED })
+      return
+    }
+    setVisitMsg(null)
+    setVisit({ table, startedAt: Date.now(), finalText: '', interim: '', phase: 'listening' })
+    recorderRef.current = startVisitRecorder({
+      Recognition,
+      onUpdate: (finalText, interim) => setVisit((v) => (v && v.phase === 'listening' ? { ...v, finalText, interim } : v)),
+      onEnd: (reason, transcript, err) => onVisitEnd(table, reason, transcript, err),
+    })
+  }
+
+  function startVisit(table: number | null) {
+    if (visit || typedVisit) return
+    if (verify && verify.rows.length > 0) {
+      setVisitMsg('Confirm or discard the tasks waiting in "Check before adding" first.')
+      verifyRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+      return
+    }
+    if (!getSpeechRecognition()) {
+      setTypedVisit({ table, reason: NOT_SUPPORTED })
+      return
+    }
+    if (!micNoticeSeen()) {
+      setPendingNotice({ table })
+      return
+    }
+    beginListening(table)
+  }
+
+  function confirm() {
+    if (!verify || !readiness(verify, tables).ready) return
     const at = Date.now()
-    const tasks: Task[] = review.rows
-      .map((r) => ({ ...r, text: cleanTaskText(r.text) }))
-      .filter((r) => r.text && tables.includes(r.table))
+    const tasks: Task[] = verify.rows
+      .map((r) => ({ ...r, text: cleanTaskText(r.text, 10) }))
+      .filter((r): r is typeof r & { table: number } => !!r.text && r.table !== null && tables.includes(r.table))
       .map((r) => ({
         id: makeId(),
         table: r.table,
@@ -81,21 +207,58 @@ export function ServiceView({ shiftApi, onParsed, prefill }: Props) {
         note: r.note,
         createdAt: at,
         doneAt: null,
-        source: review.source,
+        source: verify.source,
       }))
     addTasks(tasks)
-    addLogEvents(
-      tasks.flatMap((t) =>
-        t.flags.map((f): SafeguardEvent => ({ id: makeId(), at, kind: f, table: t.table, text: t.text })),
-      ),
-    )
-    setReview(null)
-    setNote('')
+    addLogEvents(tasks.flatMap((t) => t.flags.map((f): SafeguardEvent => ({ id: makeId(), at, kind: f, table: t.table, text: t.text }))))
+    if (verify.kind === 'note') setNote('')
+    setVerify(null)
+    setVisitMsg(null)
   }
 
+  function quickTap(table: number, tapId: string) {
+    const task = quickTapTask(tapId, table, Date.now(), makeId())
+    addTasks([task])
+    setToast({ message: `Added "${task.text}" to Table ${table}`, taskId: task.id, key: Date.now() })
+  }
+
+  const closeToast = useCallback(() => setToast(null), [])
+  const cancelNotice = useCallback(() => setPendingNotice(null), [])
+  const visitBusy = visit !== null || typedVisit !== null
+
+  const verifyCard = verify && (
+    <div ref={verifyRef} className="scroll-target">
+      <VerificationCard
+        state={verify}
+        tables={tables}
+        onChange={(update) => setVerify((s) => (s ? update(s) : s))}
+        onConfirm={confirm}
+        onDiscard={() => setVerify(null)}
+        onEditNote={() => {
+          setVerify(null)
+          textareaRef.current?.focus()
+        }}
+      />
+    </div>
+  )
+
   return (
-    <div className="service">
+    <div className={`service ${visit ? 'service-visit' : ''}`}>
       <div className="service-left">
+        {typedVisit && (
+          <TypedVisitCard
+            table={typedVisit.table}
+            reason={typedVisit.reason}
+            onSubmit={(text) => void analyzeVisit(typedVisit.table, text)}
+            onCancel={() => setTypedVisit(null)}
+          />
+        )}
+        {visitMsg && (
+          <p className="notice notice-warn" role="alert">
+            {visitMsg}
+          </p>
+        )}
+        {verify?.kind === 'visit' && verifyCard}
         <CaptureCard
           note={note}
           onNoteChange={(v) => {
@@ -107,22 +270,68 @@ export function ServiceView({ shiftApi, onParsed, prefill }: Props) {
           error={error}
           textareaRef={textareaRef}
         />
-        {review && (
-          <ReviewCard
-            review={review}
-            tables={tables}
-            onChange={(rows) => setReview({ ...review, rows })}
-            onApprove={approve}
-            onDiscard={() => setReview(null)}
-            onEditNote={() => {
-              setReview(null)
-              textareaRef.current?.focus()
-            }}
-          />
-        )}
+        {verify?.kind === 'note' && verifyCard}
         <SuggestionCard open={open} now={now} />
       </div>
-      <TableBoard open={open} done={done} tables={tables} now={now} onComplete={completeTask} onUndo={undoTask} />
+      <TableBoard
+        open={open}
+        done={done}
+        tables={tables}
+        now={now}
+        onComplete={completeTask}
+        onUndo={undoTask}
+        onQuickTap={quickTap}
+        onStartVisit={startVisit}
+        visitBusy={visitBusy}
+      />
+
+      {visit?.phase === 'listening' && (
+        <ListeningBar
+          table={visit.table}
+          startedAt={visit.startedAt}
+          finalText={visit.finalText}
+          interim={visit.interim}
+          onStop={() => recorderRef.current?.stop()}
+        />
+      )}
+      {visit?.phase === 'analyzing' && <AnalyzingBar table={visit.table} />}
+      {!visitBusy && (
+        <button className="visit-fab" onClick={() => startVisit(null)} aria-label="Start a table visit (say the table number)">
+          <Mic size={22} strokeWidth={1.5} aria-hidden="true" />
+          <span>Start visit</span>
+        </button>
+      )}
+      {toast && (
+        <UndoToast
+          key={toast.key}
+          message={toast.message}
+          onDone={closeToast}
+          onUndo={() => {
+            removeTask(toast.taskId)
+            setToast(null)
+          }}
+        />
+      )}
+
+      {pendingNotice && (
+        <ConfirmModal
+          title="Before you start"
+          confirmLabel="Start listening"
+          onCancel={cancelNotice}
+          onConfirm={() => {
+            try {
+              localStorage.setItem(MIC_NOTICE_KEY, '1')
+            } catch {
+              /* storage blocked: the notice shows again next time */
+            }
+            const { table } = pendingNotice
+            setPendingNotice(null)
+            beginListening(table)
+          }}
+        >
+          <p>{MIC_NOTICE_TEXT}</p>
+        </ConfirmModal>
+      )}
     </div>
   )
 }

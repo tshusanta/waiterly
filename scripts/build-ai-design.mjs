@@ -13,6 +13,13 @@ try {
     [1, 4, 7],
     [{ table: 4, text: 'Bring ranch on the side' }],
   )
+  const exampleVisitUser = p.buildVisitUserMessage({
+    transcript: 'two waters please actually make it three and a Coke no ice okay three waters one Coke no ice',
+    trimmed: false,
+    startTable: 4,
+    section: [1, 4, 7],
+    openTasks: [],
+  })
   const examplePlanUser = p.buildPlanUserMessage([
     { id: 'a1', table: 4, text: 'Check satay sauce for peanuts', category: 'food', priority: 'high', flags: ['allergy'], waitMin: 2 },
   ])
@@ -32,6 +39,19 @@ try {
     '',
     '### A3. Parse: output JSON schema',
     fence('json', JSON.stringify(p.PARSE_SCHEMA, null, 2)),
+    '',
+    '### A4. Table visit: system prompt',
+    'Used by `POST /api/parse` with `mode: "visit"`. Same models as parse. The note rules (A) are included inside it.',
+    '',
+    fence('text', p.VISIT_SYSTEM_PROMPT),
+    '',
+    '### A5. Table visit: user message format',
+    'Per request: section, starting table (or none), open tasks, a trimmed-start line when the transcript was cut to the most recent 8,000 characters, then the transcript. Example:',
+    '',
+    fence('text', exampleVisitUser),
+    '',
+    '### A6. Table visit: output JSON schema',
+    fence('json', JSON.stringify(p.VISIT_SCHEMA, null, 2)),
     '',
     '### B. Trip plan: system prompt',
     'Used by `POST /api/plan`. Claude `claude-haiku-5-5` or Gemini `gemini-3.8-flash`.',

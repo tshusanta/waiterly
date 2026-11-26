@@ -20,19 +20,19 @@ export class ParseShapeError extends Error {}
 export const ALLERGY_RE =
   /allerg|anaphyla|gluten|celiac|coeliac|dairy[- ]free|lactose|peanut|tree ?nut|nut[- ]free|shellfish|sesame|vegan|vegetarian|kosher|halal/i
 const COMPLAINT_RE = /complain|\bmanager\b|overcooked|undercooked|burnt|burned|wrong order|rude/i
-const PAYMENT_RE =
+export const PAYMENT_RE =
   /\b(mark\w*|set|make)\b.*\b(paid|comped?|free)\b|\b(refund|void|comp|discount|chargeback)\b/i
 const TELL_GUEST_RE = /86|sold out|tell|let .* know|unavailable|out of/i
 const SAFETY_CLAIM_RE = /\b(is|are|it's|its)\s+(safe|fine|ok|okay)\b|\bno (peanuts?|nuts|gluten|dairy|shellfish|sesame)\b/i
 const VERIFY_RE = /\b(ask|check|confirm|verify)\b/i
 
-function pick<T extends string>(allowed: readonly T[], value: unknown, fallback: T): T {
+export function pick<T extends string>(allowed: readonly T[], value: unknown, fallback: T): T {
   return typeof value === 'string' && (allowed as readonly string[]).includes(value.toLowerCase())
     ? (value.toLowerCase() as T)
     : fallback
 }
 
-function toInt(value: unknown): number | null {
+export function toInt(value: unknown): number | null {
   const n = typeof value === 'string' ? Number(value) : value
   return typeof n === 'number' && Number.isInteger(n) ? n : null
 }
@@ -43,7 +43,7 @@ function soldOutItemIn(text: string): string | null {
 }
 
 /** Apply the safety rules in code to one task already known to be in the section. */
-function enforceRules(task: DraftTask): DraftTask {
+export function enforceRules<T extends Omit<DraftTask, 'table'>>(task: T): T {
   const flags = new Set<Flag>(task.flags)
   let { text, priority, note, category } = task
 

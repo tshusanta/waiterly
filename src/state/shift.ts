@@ -90,6 +90,11 @@ export function undoTask(shift: ShiftState, id: string): ShiftState {
   }
 }
 
+/** Undo of a quick tap: the task never happened. */
+export function removeTask(shift: ShiftState, id: string): ShiftState {
+  return { ...shift, tasks: shift.tasks.filter((t) => t.id !== id) }
+}
+
 export function addLogEvents(shift: ShiftState, events: SafeguardEvent[]): ShiftState {
   return { ...shift, log: [...shift.log, ...events] }
 }

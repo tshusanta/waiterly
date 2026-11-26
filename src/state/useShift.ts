@@ -32,6 +32,7 @@ export function useShift() {
     setAssignedTables,
     addTasks: useCallback((tasks: Task[]) => setShift((s) => S.addTasks(s, tasks)), []),
     completeTask: useCallback((id: string) => setShift((s) => S.completeTask(s, id, Date.now())), []),
+    removeTask: useCallback((id: string) => setShift((s) => S.removeTask(s, id)), []),
     undoTask: useCallback((id: string) => setShift((s) => S.undoTask(s, id)), []),
     addLogEvents: useCallback(
       (events: SafeguardEvent[]) => setShift((s) => S.addLogEvents(s, events)),

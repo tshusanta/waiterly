@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
-import { ListChecks, LoaderCircle, Mic, Square } from 'lucide-react'
+import type { RefObject } from 'react'
+import { ListChecks, LoaderCircle } from 'lucide-react'
 import { NOTE_MAX_CHARS } from '../../../shared/parse/types'
 import { SCENARIOS } from '../../../shared/scenarios'
-import { getSpeechRecognition, type SpeechRecognitionLike } from '../../lib/speech'
 
 interface Props {
   note: string
@@ -14,49 +13,8 @@ interface Props {
 }
 
 export function CaptureCard({ note, onNoteChange, onSubmit, busy, error, textareaRef }: Props) {
-  const Recognition = getSpeechRecognition()
-  const [listening, setListening] = useState(false)
-  const [micError, setMicError] = useState<string | null>(null)
-  const recRef = useRef<SpeechRecognitionLike | null>(null)
-  const noteRef = useRef(note)
-  noteRef.current = note
-
   const tooLong = note.length > NOTE_MAX_CHARS
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
-
-  useEffect(() => () => recRef.current?.stop(), [])
-
-  function toggleMic() {
-    if (!Recognition) return
-    if (listening) {
-      recRef.current?.stop()
-      return
-    }
-    setMicError(null)
-    const rec = new Recognition()
-    rec.lang = 'en-US'
-    rec.interimResults = false
-    rec.continuous = true
-    const base = noteRef.current.trim()
-    let heard = ''
-    rec.onresult = (event) => {
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) heard += `${event.results[i][0].transcript.trim()} `
-      }
-      onNoteChange([base, heard.trim()].filter(Boolean).join(base ? ', ' : ''))
-    }
-    rec.onerror = (e) => {
-      setMicError(
-        e.error === 'not-allowed'
-          ? 'Microphone is blocked. Allow mic access in your browser settings, or type the note.'
-          : "Didn't catch that. Try again or type the note.",
-      )
-    }
-    rec.onend = () => setListening(false)
-    recRef.current = rec
-    rec.start()
-    setListening(true)
-  }
 
   return (
     <section className="card capture" aria-labelledby="capture-title">
@@ -85,30 +43,19 @@ export function CaptureCard({ note, onNoteChange, onSubmit, busy, error, textare
           aria-describedby="note-help note-count"
           aria-invalid={tooLong || undefined}
         />
-        {Recognition && (
-          <button
-            type="button"
-            className={`btn-icon mic ${listening ? 'mic-on' : ''}`}
-            onClick={toggleMic}
-            aria-label={listening ? 'Stop dictation' : 'Dictate note'}
-            aria-pressed={listening}
-          >
-            {listening ? <Square size={18} strokeWidth={1.5} aria-hidden="true" /> : <Mic size={20} strokeWidth={1.5} aria-hidden="true" />}
-          </button>
-        )}
       </div>
       <div className="note-meta">
         <span id="note-help" className="muted">
-          {listening ? 'Listening. Tap stop when done.' : `${isMac ? 'Cmd' : 'Ctrl'}+Enter to organize`}
+          {`${isMac ? 'Cmd' : 'Ctrl'}+Enter to organize`}
         </span>
         <span id="note-count" className={`mono ${tooLong ? 'text-danger' : 'muted'}`}>
           {note.length}/{NOTE_MAX_CHARS}
         </span>
       </div>
 
-      {(error || micError || tooLong) && (
+      {(error || tooLong) && (
         <p className="form-error" role="alert">
-          {tooLong ? `Note is ${note.length - NOTE_MAX_CHARS} characters too long. Split it into two notes.` : error ?? micError}
+          {tooLong ? `Note is ${note.length - NOTE_MAX_CHARS} characters too long. Split it into two notes.` : error}
         </p>
       )}
 

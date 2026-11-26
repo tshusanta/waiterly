@@ -6,6 +6,10 @@ import { validateParseResult } from '../../shared/parse/validate'
 import { fallbackPlan, type PlanResponse, type PlanTask } from '../../shared/plan'
 import type { ShiftStats } from '../../shared/stats'
 import { fallbackSummary, type SummaryResponse } from '../../shared/summary'
+import { fallbackVisit } from '../../shared/visit/fallback'
+import { trimTranscript } from '../../shared/visit/tables'
+import type { VisitResponse } from '../../shared/visit/types'
+import { validateVisitResult } from '../../shared/visit/validate'
 
 /** A message the server wants shown as-is (validation, rate limit). */
 export class ApiMessageError extends Error {}
@@ -48,6 +52,26 @@ export async function parseNote(
       source: 'fallback',
       notice: "Couldn't reach the server. Used the keyword parser on this device. Double-check each task.",
       ...validateParseResult(fallbackParse(note), { note, assignedTables, openTasks }),
+    }
+  }
+}
+
+/** A table visit: the transcript (most recent ~8,000 characters), the starting table and the section. */
+export async function parseVisit(
+  transcript: string,
+  startTable: number | null,
+  assignedTables: number[],
+  openTasks: OpenTaskRef[],
+): Promise<VisitResponse> {
+  const { text, trimmed } = trimTranscript(transcript)
+  try {
+    return await postJson<VisitResponse>('/api/parse', { mode: 'visit', transcript: text, trimmed, startTable, assignedTables, openTasks })
+  } catch (err) {
+    if (err instanceof ApiMessageError) throw err
+    return {
+      source: 'fallback',
+      notice: "Couldn't reach the server. Used the keyword parser on this device. It can't follow changes in the conversation, so check each task.",
+      ...validateVisitResult(fallbackVisit(text, startTable), { transcript: text, startTable, assignedTables, openTasks, trimmed }),
     }
   }
 }

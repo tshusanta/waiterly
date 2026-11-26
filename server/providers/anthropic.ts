@@ -8,9 +8,12 @@ import {
   PLAN_SYSTEM_PROMPT,
   SUMMARY_SCHEMA,
   SUMMARY_SYSTEM_PROMPT,
+  VISIT_SCHEMA,
+  VISIT_SYSTEM_PROMPT,
   buildParseUserMessage,
   buildPlanUserMessage,
   buildSummaryUserMessage,
+  buildVisitUserMessage,
 } from '../prompt.js'
 import { AI_TIMEOUT_MS, AiNotConfiguredError, AiUnavailableError, type AiProvider } from './types.js'
 
@@ -74,6 +77,8 @@ export const anthropicProvider: AiProvider = {
   isConfigured: () => Boolean(process.env.ANTHROPIC_API_KEY),
   parseNote: ({ note, section, openTasks }) =>
     structuredCall(MODELS.parse, PARSE_SYSTEM_PROMPT, buildParseUserMessage(note, section, openTasks), PARSE_SCHEMA),
+  parseVisit: (input) =>
+    structuredCall(MODELS.parse, VISIT_SYSTEM_PROMPT, buildVisitUserMessage(input), VISIT_SCHEMA),
   planTrips: ({ tasks }) =>
     structuredCall(MODELS.plan, PLAN_SYSTEM_PROMPT, buildPlanUserMessage(tasks), PLAN_SCHEMA),
   summarizeShift: ({ stats }) => summaryCall(stats),

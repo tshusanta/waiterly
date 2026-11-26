@@ -1,7 +1,11 @@
 import { useState } from 'react'
-import { Check, TriangleAlert, Undo2 } from 'lucide-react'
+import { Check, Mic, TriangleAlert, Undo2 } from 'lucide-react'
+import { posLine } from '../../../shared/pos'
+import { QUICK_TAPS } from '../../../shared/quickTap'
 import type { Task } from '../../../shared/types'
 import { Badge, FlagBadge, Pill, categoryLabel } from '../../components/Badge'
+import { CopyButton } from '../../components/CopyButton'
+import { sortTableTasks } from '../../lib/overdue'
 import { formatClock, formatDuration, formatWait, minutesBetween, WAITING_THRESHOLD_MIN } from '../../lib/time'
 
 interface Props {
@@ -11,6 +15,10 @@ interface Props {
   now: number
   onComplete: (id: string) => void
   onUndo: (id: string) => void
+  onQuickTap: (table: number, tapId: string) => void
+  onStartVisit: (table: number) => void
+  /** A visit is listening or being organized: no second visit can start. */
+  visitBusy: boolean
 }
 
 function WaitChip({ createdAt, now }: { createdAt: number; now: number }) {
@@ -41,12 +49,13 @@ function TaskRow({ task, now, onComplete }: { task: Task; now: number; onComplet
             {task.note}
           </p>
         )}
+        {task.flags.includes('allergy') && <CopyButton text={posLine([task])} className="btn btn-ghost btn-pos" />}
       </div>
     </li>
   )
 }
 
-export function TableBoard({ open, done, tables, now, onComplete, onUndo }: Props) {
+export function TableBoard({ open, done, tables, now, onComplete, onUndo, onQuickTap, onStartVisit, visitBusy }: Props) {
   const [filter, setFilter] = useState<number | 'all'>('all')
   // Section tables, plus any table that still has open tasks (e.g. after a section change).
   const allTables = [...new Set([...tables, ...open.map((t) => t.table)])].sort((a, b) => a - b)
@@ -73,13 +82,35 @@ export function TableBoard({ open, done, tables, now, onComplete, onUndo }: Prop
 
       <div className="table-grid">
         {shown.map((table) => {
-          const tasks = open.filter((t) => t.table === table)
+          // Overdue tasks (open 5+ min) move to the top of their table.
+          const tasks = sortTableTasks(open.filter((t) => t.table === table), now)
+          const inSection = tables.includes(table)
           return (
             <article key={table} className="card table-card" aria-labelledby={`table-${table}-title`}>
               <header className="table-card-head">
                 <h3 id={`table-${table}-title`}>Table {table}</h3>
                 <span className="muted small">{tasks.length ? `${tasks.length} open` : 'All clear'}</span>
+                {inSection && (
+                  <button
+                    className="btn-icon card-mic"
+                    onClick={() => onStartVisit(table)}
+                    disabled={visitBusy}
+                    aria-label={`Start visit at Table ${table}`}
+                    title={`Start visit at Table ${table}`}
+                  >
+                    <Mic size={20} strokeWidth={1.5} aria-hidden="true" />
+                  </button>
+                )}
               </header>
+              {inSection && (
+                <div className="quick-row" role="group" aria-label={`Quick add for Table ${table}`}>
+                  {QUICK_TAPS.map((q) => (
+                    <button key={q.id} type="button" className="quick-btn" onClick={() => onQuickTap(table, q.id)}>
+                      {q.label}
+                    </button>
+                  ))}
+                </div>
+              )}
               {tasks.length ? (
                 <ul className="task-list">
                   {tasks.map((t) => <TaskRow key={t.id} task={t} now={now} onComplete={onComplete} />)}

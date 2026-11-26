@@ -10,6 +10,7 @@ export const noneProvider: AiProvider = {
   models: { parse: 'keyword parser', plan: 'rule-based planner', summary: 'stats-based summary' },
   isConfigured: () => false,
   parseNote: notConfigured,
+  parseVisit: notConfigured,
   planTrips: notConfigured,
   summarizeShift: notConfigured,
 }

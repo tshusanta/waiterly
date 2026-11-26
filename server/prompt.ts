@@ -5,7 +5,7 @@ import { RESTAURANT } from '../shared/restaurant.js'
 import { CATEGORIES, FLAGS, PRIORITIES } from '../shared/types.js'
 import type { OpenTaskRef } from '../shared/parse/types.js'
 import { STATIONS, type PlanTask } from '../shared/plan.js'
-import { PARSE_RULES } from '../shared/rules.js'
+import { PARSE_RULES, VISIT_RULES } from '../shared/rules.js'
 
 export const PARSE_SYSTEM_PROMPT = `You turn a restaurant server's quick note into structured tasks for Waiterly.
 
@@ -158,4 +158,103 @@ ${open}
 <note>
 ${note}
 </note>`
+}
+
+export const VISIT_SYSTEM_PROMPT = `You turn the transcript of one restaurant table visit into structured tasks for Waiterly.
+
+Restaurant: ${RESTAURANT.name}, a ${RESTAURANT.type}.
+Sold out tonight (86'd): ${RESTAURANT.soldOut.join(', ')}.
+Free refills: ${RESTAURANT.freeRefills.join(', ')}.
+Menu: ${RESTAURANT.menu.join(', ')}.
+Allergy policy: ${RESTAURANT.allergyPolicy}
+
+The transcript arrives inside <transcript> tags, with the server's section, the starting table (the table card the visit was started from, or none) and the tasks already open.
+
+Visit rules:
+${VISIT_RULES.map((rule, i) => `${i + 1}. ${rule}`).join('\n')}
+
+Note rules (they apply to every task; where they conflict with the visit rules about the starting table, the visit rules win):
+${PARSE_RULES.map((rule, i) => `${i + 1}. ${rule}`).join('\n')}
+
+More guidance:
+- "Check" can be a verb. "Check the satay sauce" after an allergy means "ask the kitchen", not a bill request.
+- Don't create a task that duplicates one already open for the same table.
+- Categories: ${CATEGORIES.join(', ')}. Priorities: ${PRIORITIES.join(', ')}. Flags: ${FLAGS.join(', ')}.
+- table_source: "card" for the starting table, "spoken" for a table said in the transcript, "corrected" for a self-corrected table, "none" when there is no table.
+
+Example
+Section: 2, 5
+Starting table: 5
+Transcript: "hi folks what can I get you two iced teas please actually make one of those a lemonade and can we get ketchup sure so one iced tea one lemonade and ketchup"
+Output tasks: table 5 "Bring 1 iced tea" (drinks, card, changes "2 -> 1 iced tea"); table 5 "Bring 1 lemonade" (drinks, card, changes "Iced tea -> lemonade"); table 5 "Bring ketchup" (condiments, card).`
+
+const VISIT_TASK_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['table', 'table_source', 'text', 'category', 'priority', 'flags', 'note', 'changes'],
+  properties: {
+    table: { type: 'integer' },
+    table_source: { type: 'string', enum: ['card', 'spoken', 'corrected', 'none'] },
+    text: STRING,
+    category: { type: 'string', enum: [...CATEGORIES] },
+    priority: { type: 'string', enum: [...PRIORITIES] },
+    flags: { type: 'array', items: { type: 'string', enum: [...FLAGS] } },
+    note: STRING,
+    changes: { type: 'array', items: STRING },
+  },
+} as const
+
+/** JSON schema for a visit analysis. Strict: every field required, nothing extra. */
+export const VISIT_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['tasks', 'changes', 'mismatches', 'table_corrections', 'needs_clarification', 'rejected'],
+  properties: {
+    tasks: { type: 'array', items: VISIT_TASK_SCHEMA },
+    changes: { type: 'array', items: STRING },
+    mismatches: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['task_index', 'guest', 'read_back'],
+        properties: { task_index: { type: 'integer' }, guest: STRING, read_back: STRING },
+      },
+    },
+    table_corrections: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['from', 'to'],
+        properties: { from: { type: 'integer' }, to: { type: 'integer' } },
+      },
+    },
+    needs_clarification: PARSE_SCHEMA.properties.needs_clarification,
+    rejected: PARSE_SCHEMA.properties.rejected,
+  },
+} as const
+
+export function buildVisitUserMessage(input: {
+  transcript: string
+  trimmed: boolean
+  startTable: number | null
+  section: number[]
+  openTasks: OpenTaskRef[]
+}): string {
+  const open = input.openTasks.length ? input.openTasks.map((t) => `- Table ${t.table}: ${t.text}`).join('\n') : '(none)'
+  const start =
+    input.startTable === null
+      ? 'none (started from the main mic; listen for spoken table numbers)'
+      : `${input.startTable} (the server started this visit from the Table ${input.startTable} card)`
+  const trimmed = input.trimmed ? '\nThe start of this visit was trimmed to fit. Earlier requests may be missing.\n' : ''
+  return `Section: ${input.section.join(', ')}
+Starting table: ${start}
+
+Already open:
+${open}
+${trimmed}
+<transcript>
+${input.transcript}
+</transcript>`
 }

@@ -19,7 +19,8 @@ export type Priority = (typeof PRIORITIES)[number]
 export const FLAGS = ['allergy', '86d', 'complaint'] as const
 export type Flag = (typeof FLAGS)[number]
 
-export type TaskSource = 'ai' | 'fallback' | 'seed'
+/** quick = one-tap button on a table card (no AI, no review). */
+export type TaskSource = 'ai' | 'fallback' | 'seed' | 'quick'
 
 export interface Task {
   id: string

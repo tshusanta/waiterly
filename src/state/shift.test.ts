@@ -117,3 +117,15 @@ describe('settings', () => {
     expect(S.loadSettings(fakeStore()).assignedTables).toEqual([1, 4, 7])
   })
 })
+
+describe('quick-tap undo', () => {
+  it('removeTask takes the task away entirely (it never happened)', async () => {
+    const { removeTask, addTasks } = await import('./shift')
+    const { quickTapTask } = await import('../../shared/quickTap')
+    const base = { version: 1 as const, startedAt: 0, tasks: [], log: [] }
+    const added = addTasks(base, [quickTapTask('water', 4, 10, 'q1'), quickTapTask('check', 7, 10, 'q2')])
+    const undone = removeTask(added, 'q1')
+    expect(undone.tasks.map((t) => t.id)).toEqual(['q2'])
+    expect(added.tasks).toHaveLength(2) // pure: original untouched
+  })
+})

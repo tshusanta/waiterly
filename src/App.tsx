@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AiStatusBadge } from './components/Badge'
 import { NAV_ITEMS, Nav, type View } from './components/Nav'
 import { getHealth, type Health } from './lib/api'
+import { newlyOverdue, overdueCount, tabTitle } from './lib/overdue'
+import { useNow } from './lib/time'
+import { openTasks } from './state/shift'
 import { useShift } from './state/useShift'
 import { ServiceView } from './views/service/ServiceView'
 import { SettingsView } from './views/SettingsView'
@@ -38,6 +41,22 @@ export default function App() {
       setAiMode((m) => (m === 'checking' ? (h.aiConfigured ? 'ai' : 'fallback') : m))
     })
   }, [])
+
+  // Overdue alerts on every view: "(2) Waiterly" in the tab title, and one short
+  // vibration (where supported) when a task first passes 5 minutes.
+  const now = useNow(15_000)
+  const open = openTasks(shiftApi.shift)
+  const overdue = overdueCount(open, now)
+  const seenOverdue = useRef<Set<string> | null>(null)
+  useEffect(() => {
+    document.title = tabTitle(overdue)
+  }, [overdue])
+  useEffect(() => {
+    const first = seenOverdue.current === null
+    seenOverdue.current ??= new Set()
+    const fresh = newlyOverdue(open, now, seenOverdue.current, first)
+    if (fresh.length && typeof navigator.vibrate === 'function') navigator.vibrate(200)
+  }, [open, now])
 
   useEffect(() => {
     const onHash = () => setView(viewFromHash())
