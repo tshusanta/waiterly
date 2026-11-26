@@ -5,6 +5,7 @@ import { getHealth } from './lib/api'
 import { useShift } from './state/useShift'
 import { ServiceView } from './views/service/ServiceView'
 import { SettingsView } from './views/SettingsView'
+import { StatsView } from './views/stats/StatsView'
 
 const VIEWS: View[] = ['service', 'stats', 'how', 'settings']
 const viewFromHash = (): View => {
@@ -70,12 +71,11 @@ export default function App() {
         </header>
 
         {view === 'service' && <ServiceView shiftApi={shiftApi} onParsed={setAiMode} />}
+        {view === 'stats' && <StatsView shiftApi={shiftApi} />}
         {view === 'settings' && <SettingsView shiftApi={shiftApi} />}
-        {(view === 'stats' || view === 'how') && (
+        {view === 'how' && (
           <section className="card">
-            <p className="muted">
-              {view === 'stats' ? 'Floor stats is built in Phase 4.' : 'How it works is built in Phase 5.'}
-            </p>
+            <p className="muted">How it works is built in Phase 5.</p>
           </section>
         )}
 

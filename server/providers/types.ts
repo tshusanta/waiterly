@@ -3,6 +3,7 @@
 // so swapping providers can never bypass the safeguards.
 import type { OpenTaskRef } from '../../shared/parse/types.js'
 import type { PlanTask } from '../../shared/plan.js'
+import type { ShiftStats } from '../../shared/stats.js'
 
 export interface AiProvider {
   /** Shown in /api/health and the docs, e.g. "anthropic". */
@@ -12,6 +13,7 @@ export interface AiProvider {
   isConfigured(): boolean
   parseNote(input: { note: string; section: number[]; openTasks: OpenTaskRef[] }): Promise<unknown>
   planTrips(input: { tasks: PlanTask[] }): Promise<unknown>
+  summarizeShift(input: { stats: ShiftStats }): Promise<unknown>
 }
 
 /** Thrown for "AI can't answer right now". Callers switch to the deterministic fallback. */

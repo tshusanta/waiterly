@@ -4,6 +4,8 @@ import { fallbackParse } from '../../shared/parse/fallback'
 import type { OpenTaskRef, ParseResponse } from '../../shared/parse/types'
 import { validateParseResult } from '../../shared/parse/validate'
 import { fallbackPlan, type PlanResponse, type PlanTask } from '../../shared/plan'
+import type { ShiftStats } from '../../shared/stats'
+import { fallbackSummary, type SummaryResponse } from '../../shared/summary'
 
 /** A message the server wants shown as-is (validation, rate limit). */
 export class ApiMessageError extends Error {}
@@ -59,6 +61,19 @@ export async function planTrips(tasks: PlanTask[]): Promise<PlanResponse> {
       source: 'fallback',
       notice: "Couldn't reach the server. Planned on this device with the rule-based planner.",
       trips: fallbackPlan(tasks),
+    }
+  }
+}
+
+export async function summarizeShift(stats: ShiftStats): Promise<SummaryResponse> {
+  try {
+    return await postJson<SummaryResponse>('/api/summary', { stats })
+  } catch (err) {
+    if (err instanceof ApiMessageError) throw err
+    return {
+      source: 'fallback',
+      notice: "Couldn't reach the server. Summary written on this device from the shift stats.",
+      ...fallbackSummary(stats),
     }
   }
 }

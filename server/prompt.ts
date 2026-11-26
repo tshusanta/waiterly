@@ -125,6 +125,33 @@ export function buildPlanUserMessage(tasks: PlanTask[]): string {
   return `Open tasks:\n${lines.join('\n')}`
 }
 
+export const SUMMARY_SYSTEM_PROMPT = `You write a short end-of-rush summary for the manager of ${RESTAURANT.name}, a ${RESTAURANT.type}.
+
+You receive the shift statistics as JSON. That's all you get: no guest details and no task text.
+
+Rules:
+1. Use only numbers that appear in the JSON, exactly as given. Never calculate, estimate, round or invent a number, percentage, time or table. If a number isn't in the JSON, write the sentence without it.
+2. headline: one sentence, at most 14 words, giving the state of the shift.
+3. insights: 2 to 4 short sentences on patterns a manager can act on: busy tables, common request types, slow completions, safeguard flags (allergy, sold-out, complaint, rejected, clarification).
+4. action: one concrete next step for the floor, at most 16 words. If openAllergyTables is not empty, the action is to confirm those allergy checks with the kitchen.
+5. Plain restaurant language. No marketing words, no emojis, no exclamation marks.
+6. Never say a dish is safe for an allergy.`
+
+export const SUMMARY_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['headline', 'insights', 'action'],
+  properties: {
+    headline: STRING,
+    insights: { type: 'array', items: STRING },
+    action: STRING,
+  },
+} as const
+
+export function buildSummaryUserMessage(stats: unknown): string {
+  return `Shift statistics:\n${JSON.stringify(stats, null, 2)}`
+}
+
 export function buildParseUserMessage(note: string, section: number[], openTasks: OpenTaskRef[]): string {
   const open = openTasks.length
     ? openTasks.map((t) => `- Table ${t.table}: ${t.text}`).join('\n')

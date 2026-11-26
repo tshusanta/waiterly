@@ -168,6 +168,44 @@ A later run found that "table 1 needs two waters" read the quantity as 1, becaus
 
 ---
 
-## Phase 4: Manager view
+## 2026-11-25: Phase 4, Manager view (done, in FALLBACK MODE)
+
+| Item | Who | Notes |
+|---|---|---|
+| `shared/stats.ts`: `computeStats()` | Agent | Requests, completed, completion %, average minutes to complete, longest open wait and its table, safeguard counts from the log, open allergy tables, requests by table (open/completed) and by category. Pure function, unit-tested on the seed shift. |
+| KPI row (5 tiles) | Agent | Requests this shift, Completed, Avg time to complete, Longest open wait, Safeguard flags. At most 3 data points per tile. 2-column grid on phones. |
+| `HBarChart` (plain HTML) | Agent, following the dataviz skill | Built to the skill's mark specs: 20 px bars, 4 px rounded data-end, a 2 px surface gap between stacked segments, the total at the tip and no gridlines. A legend only for 2+ series. A hover/focus tooltip on each row, where the whole row is the hit target and is keyboard-focusable. Each row has an accessible label, and there's a "Show as table" view. |
+| Chart colors | Agent | **Validated with the dataviz palette script.** Slate gray for "open" *failed* the chroma floor (it reads as no color), so it was swapped for a muted blue. The final pairs pass all 6 checks: dark `#10b981` / `#6b8fd6` on `#1e293b`, light `#047857` / `#4a72c4` on white. Emerald = completed (the healthy accent), blue = open. Amber and red stay reserved for status. |
+| Safeguard log | Agent | Newest first, with time, uppercase badge (ALLERGY, 86'D, COMPLAINT, REJECTED, QUESTION), table and text. Scrolls after 420 px. |
+| `POST /api/summary` + `shared/summary.ts` | Agent | The AI gets **computed stats only** (no task text, no guest details). Sonnet 5.5, structured output `{headline, insights[], action}`, effort low. **Anthropic server-side refusal fallback is on** (`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`), so a declined request is re-run on a fallback model. The student was told before Phase 4 and didn't object. Input stats are rebuilt from untrusted JSON, with numbers clamped and categories whitelisted. 10 requests/min per IP. |
+| **Number-honesty check** | Agent, an added safeguard beyond the spec | Every number in the AI's headline, insights and action must appear in the stats it was given (plus 86, as in "86'd"). Lines with invented numbers are dropped, and a visible notice says how many. If nothing honest is left, the deterministic summary is used. |
+| Deterministic summary | Agent | Written from the stats when AI is unavailable, and it passes the same number check. The action is "confirm the open allergy" when there is one, otherwise the longest wait. |
+
+**Model choice:** the parse and plan calls stay on Haiku 5.5 (fast, cheap extraction). The summary uses Sonnet 5.5 as the spec asks, because it's prose a manager reads.
+
+**How it was tested**
+- **Unit tests:** 51/51 pass (+9). They cover stats on the seed shift (12 requests, 6 done, 50%, 4 min average, 7 min longest wait at T1, open allergy at T4) and the number check (a "35% faster" headline is replaced, a "19 min average" insight is dropped, all-invented output throws and falls back). Also: the fallback summary passes its own check, ties are reported as ties, and `readStats` drops unknown fields and categories.
+- **Chrome, desktop:**
+  - The KPIs show the right values.
+  - Both charts render with the legend and the values at the tips.
+  - Hovering Table 4 shows a "Completed 2 / Open 2" tooltip.
+  - The safeguard log lists all 5 seed events.
+  - "Write shift summary" gives a STATS-BASED badge and the plain-language FALLBACK notice.
+- **Chrome, 375 px iframe:** `scrollWidth` 360, no overflow, 2-column KPI grid.
+- The server type check passes with the beta `fallbacks` parameter, so the SDK accepts it.
+
+**Problems and fixes**
+1. Gray failed the palette's chroma check. Fixed by switching to a validated blue (see above).
+2. **Honesty bug in the fallback summary:** "Table 1 is the busiest" when all tables were tied at 4. Fixed: ties are now stated as ties ("Requests are spread evenly: 4 requests per table"), with a unit test.
+3. The safeguard breakdown left out questions, so the parts didn't add up to the total (1+1+1+1 ≠ 5). Fixed, with a unit test that the parts sum to the total.
+4. The build shipped every font subset (Cyrillic, Greek, Vietnamese). Trimmed to the Latin subset, which took CSS from 27.6 to 18.7 kB with 5 font files instead of ~60.
+
+**Open items (unchanged)**
+- Live AI test once the key is added: parse, plan and summary, including a check that the summary's number filter doesn't over-drop real AI output.
+- `.js` import resolution on Vercel.
+
+---
+
+## Phase 5: How it works
 
 *(not started)*
