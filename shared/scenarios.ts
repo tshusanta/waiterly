@@ -1,5 +1,5 @@
 // The spec's test scenarios. Used by the one-tap chips and the "How it works" table.
-// (scripts/run-scenarios.mjs keeps a plain-JS copy so it runs without a build.)
+// (scripts/scenario-spec.mjs keeps a plain-JS copy, with the PASS/FAIL checks, so the runner works without a build.)
 export interface Scenario {
   id: string
   label: string

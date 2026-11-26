@@ -51,13 +51,21 @@ export function isRetryable(err: unknown): boolean {
 }
 
 const RETRY_DELAY_MS = 700
-const MIN_TIME_FOR_RETRY_MS = 6_000
+// Gemini refuses a request deadline under 10 s with 400 "Minimum allowed deadline is 10s"
+// (seen live on 2026-11-26: a retry sent with 9 s left failed that way).
+export const MIN_GEMINI_DEADLINE_MS = 10_000
+
+/** Time to give a retry after a failure, or null if the 15 s budget can't fit one Gemini accepts. */
+export function retryTimeoutMs(remainingMs: number): number | null {
+  const left = remainingMs - RETRY_DELAY_MS
+  return left >= MIN_GEMINI_DEADLINE_MS ? left : null
+}
 
 async function structuredCall(system: string, user: string, schema: object): Promise<unknown> {
   const model = geminiModel()
   const deadline = Date.now() + AI_TIMEOUT_MS // one 15 s budget for the whole call, retry included
   const attempt = () => {
-    const remaining = Math.max(1_000, deadline - Date.now())
+    const remaining = Math.max(MIN_GEMINI_DEADLINE_MS, deadline - Date.now())
     return getClient().models.generateContent({
       model,
       contents: user,
@@ -76,7 +84,7 @@ async function structuredCall(system: string, user: string, schema: object): Pro
   try {
     response = await attempt()
   } catch (err) {
-    if (!isRetryable(err) || deadline - Date.now() < MIN_TIME_FOR_RETRY_MS) throw err
+    if (!isRetryable(err) || retryTimeoutMs(deadline - Date.now()) === null) throw err
     await new Promise((r) => setTimeout(r, RETRY_DELAY_MS))
     response = await attempt()
   }

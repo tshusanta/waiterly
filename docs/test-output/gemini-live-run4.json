@@ -1,0 +1,105 @@
+{
+  "base": "https://waiterly.vercel.app",
+  "ranAt": "2026-11-26T17:47:23.408Z",
+  "requireAi": true,
+  "aiCalls": 3,
+  "passed": 0,
+  "total": 3,
+  "sources": [
+    "fallback"
+  ],
+  "results": [
+    {
+      "name": "Allergy",
+      "note": "table 4 the lady says she is allergic to peanuts, can we check the satay sauce. also lemon for her water",
+      "expected": "Allergy task flagged high with \"Confirm with kitchen\", plus a separate lemon task. \"Check\" must not become a bill request.",
+      "status": 200,
+      "ms": 7200,
+      "pass": false,
+      "fails": [
+        "fell back instead of using AI (ai_error: AI is unavailable right now. Used the keyword parser instead. Double-check each task.)"
+      ],
+      "body": {
+        "source": "fallback",
+        "reason": "ai_error",
+        "notice": "AI is unavailable right now. Used the keyword parser instead. Double-check each task.",
+        "tasks": [
+          {
+            "table": 4,
+            "text": "Check satay sauce for peanuts",
+            "category": "food",
+            "priority": "high",
+            "flags": [
+              "allergy"
+            ],
+            "note": "Confirm with kitchen before serving"
+          },
+          {
+            "table": 4,
+            "text": "Bring lemon for water",
+            "category": "condiments",
+            "priority": "normal",
+            "flags": [],
+            "note": ""
+          }
+        ],
+        "needs_clarification": [],
+        "rejected": [],
+        "skipped": []
+      }
+    },
+    {
+      "name": "Unclear table",
+      "note": "the guy by the window wants more bread and table 9 needs a high chair",
+      "expected": "Bread becomes a clarification question. Table 9 is rejected as outside the section.",
+      "status": 200,
+      "ms": 14141,
+      "pass": false,
+      "fails": [
+        "fell back instead of using AI (ai_error: AI is unavailable right now. Used the keyword parser instead. Double-check each task.)"
+      ],
+      "body": {
+        "source": "fallback",
+        "reason": "ai_error",
+        "notice": "AI is unavailable right now. Used the keyword parser instead. Double-check each task.",
+        "tasks": [],
+        "needs_clarification": [
+          {
+            "request": "Bring more bread",
+            "question": "Which table wants this: bring more bread?"
+          }
+        ],
+        "rejected": [
+          {
+            "request": "Table 9: Bring high chair",
+            "reason": "Table 9 is not in your section (1, 4, 7)."
+          }
+        ],
+        "skipped": []
+      }
+    },
+    {
+      "name": "Shift summary",
+      "expected": "Headline, 2-4 insights, one action; open allergy at table 4 is the action; no invented numbers (server drops any).",
+      "status": 200,
+      "ms": 4325,
+      "pass": false,
+      "fails": [
+        "fell back instead of using AI (ai_error: AI is unavailable right now. Used the stats-based summary instead.)"
+      ],
+      "body": {
+        "source": "fallback",
+        "reason": "ai_error",
+        "notice": "AI is unavailable right now. Used the stats-based summary instead.",
+        "headline": "14 requests this shift, 6 done, 4 min average.",
+        "insights": [
+          "Table 4 is the busiest with 6 requests.",
+          "Most requests are supplies (4).",
+          "Longest open wait is 7 min at table 1.",
+          "6 safeguards triggered: 2 allergy, 1 sold-out, 1 complaint, 1 rejected, 1 question."
+        ],
+        "action": "Confirm the open allergy check at table 4 with the kitchen."
+      }
+    }
+  ]
+}
