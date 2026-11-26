@@ -469,3 +469,21 @@ A later run found that "table 1 needs two waters" read the quantity as 1, becaus
 
 **Tests:** 191/191.
 
+## 2026-11-26: feature freeze, `v2-final`
+
+**Student request:** the app is final. Bring every doc up to date, tag `v2-final`, commit and push. No more code changes unless something is broken.
+
+- **Docs checked and updated** (no code changes):
+  - README: description, test count 191, the full doc list, the version note.
+  - PROJECT_SUMMARY: test count, wording.
+  - DEMO_SCRIPT: it still said there was no AI key and that Claude reads the note. It now describes Gemini Flash-Lite on the free tier, with the fallback lines kept.
+  - ADD_API_KEY_LATER: the real-AI test command now uses `--require-ai`, the 8-call cap and `--visits`.
+  - RISKS: the browser-support limitation now refers to voice visits.
+  - TEST_RESULTS: the free-tier status, plus a note that §3 holds `gemini-3.8-flash` results not re-run after the model switch.
+- **Final state:** live at https://waiterly.vercel.app, Gemini `gemini-3.5-flash-lite` via `GEMINI_MODEL` (free tier), 191/191 tests, build clean.
+- **Tags:** `v1-stable` (before the final feature update) and **`v2-final`** (this commit).
+- **Still open, honestly:**
+  - Allergy, Unclear table and Shift summary have no real-AI result yet. They pass mocked and on the fallback path.
+  - Only 1 of the 18 visit transcripts has a real-AI result.
+  - No test with a real microphone or phone.
+

@@ -19,7 +19,7 @@ An allergy question that gets lost or answered casually is a safety risk, not ju
 
 ## Solution
 
-The server types or dictates one messy note, for example *"table 1 needs two waters and napkins, 4 wants ranch, seven is ready for the check split three ways"*.
+The server types one messy note (or talks through a table visit, below), for example *"table 1 needs two waters and napkins, 4 wants ranch, seven is ready for the check split three ways"*.
 
 1. **The AI organizes it** into short, prioritized tasks per table. Allergies are flagged and sent to the kitchen, sold-out items become "tell the guest" tasks, unclear requests come back as questions, and anything outside the section or not a guest request is rejected.
 2. **Or a table visit by voice.** A mic on each table card (or one at the bottom of the screen) listens to one visit. The AI returns the final state of the conversation, with corrections, cancellations and modifiers, and code enforces the table rules. **Quick-tap buttons** (Water, Check, To-go box…) add simple tasks instantly with Undo.
@@ -50,7 +50,7 @@ The server types or dictates one messy note, for example *"table 1 needs two wat
 | **Gemini via `@google/genai`** (alternative) | Used when only a Google key is available. Live: `gemini-3.5-flash-lite` via `GEMINI_MODEL`, the fastest flash-lite this key can use, with minimal thinking (code default `gemini-3.8-flash`). Same prompts, schemas and validators. |
 | **Deterministic fallbacks** | The app works with no key, during outages and on timeouts, and the spec forbids fake AI output, so the fallback is honest code. |
 | **localStorage** | Each tester gets their own sandbox shift with no accounts and no stored personal data. "Reset shift" restores the sample. |
-| **Vitest** | 188 unit and integration tests. They include mocked Gemini replies for every scenario and all 18 visit transcripts, a model that misbehaves on purpose, and a fake speech recognizer. |
+| **Vitest** | 191 unit and integration tests. They include mocked Gemini replies for every scenario and all 18 visit transcripts, a model that misbehaves on purpose, and a fake speech recognizer. |
 | **Web Speech API** | Table-visit voice mode: continuous with live text, auto-restart, 20 s silence and 10 min cap, text only. Where unsupported, a text box. |
 
 ---
@@ -121,7 +121,7 @@ cd waiterly
 npm install
 cp .env.example .env     # optional: add ANTHROPIC_API_KEY or GEMINI_API_KEY; leave blank for FALLBACK MODE
 npm run dev              # http://localhost:5173; the /api routes run locally through a Vite dev plugin
-npm test                 # 188 unit + integration tests
+npm test                 # 191 unit + integration tests
 npm run scenarios -- http://localhost:5173   # spec scenarios with automatic PASS/FAIL
 ```
 

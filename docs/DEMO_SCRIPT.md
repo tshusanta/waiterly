@@ -6,7 +6,7 @@
 - Have your phone ready for the 10-second mobile shot (optional).
 - Speak like you're showing a coworker, not pitching.
 
-> **Two versions of one line.** The script works in both modes. If the badge reads **FALLBACK MODE** (no API key), say the *[Fallback]* lines. If it reads **AI ONLINE** (key added), say the *[AI]* lines. Be honest about which one the viewer is seeing.
+> **Two versions of one line.** The live site runs Gemini `gemini-3.5-flash-lite` on Google's free tier, so the badge normally reads **AI ONLINE**. If Google is busy or the day's free quota is used up, the review card says **FALLBACK MODE**. Say the *[AI]* or *[Fallback]* line to match what the viewer sees, and be honest about which one it is. Each AI action uses one free-tier request, so do a dry run sparingly.
 
 ---
 
@@ -30,8 +30,8 @@ Point at the **amber WAITING 7 MIN** chips and the **ALLERGY** badge on Table 4.
 
 > "Nothing goes on the board yet. I review it first. The allergy is flagged high, and the note says *confirm with the kitchen before serving*. Waiterly never says a dish is safe; the kitchen decides. And 'check the satay sauce' didn't become a bill request. Lemon is a separate task."
 
-*[Fallback]* > "The badge says FALLBACK MODE. There's no AI key on this deployment yet, so a keyword parser is doing this, and it says so. With a key, Claude does it and the same safety checks run on its answer."
-*[AI]* > "That's Claude Haiku reading the note. Code then double-checks every field before I see it."
+*[Fallback]* > "The card says FALLBACK MODE. The free AI is busy or out of quota right now, so a keyword parser did this, and it says so. The same safety checks run either way."
+*[AI]* > "That's Gemini Flash-Lite reading the note. Code then double-checks every field before I see it."
 
 **Click:** change one task's **table dropdown** to show it's editable, change it back, then click **Confirm 2 tasks**.
 
@@ -42,7 +42,7 @@ Point at the **amber WAITING 7 MIN** chips and the **ALLERGY** badge on Table 4.
 - **Click:** the **mic on the Table 4 card**. First time only: *"Waiterly listens only during a visit you start, never stores audio…"*, then **Start listening**.
 - **Say:** *"two iced teas… actually make one a lemonade… and a Coke no ice. So that's one iced tea, one lemonade, one Coke no ice."* Tap **Stop**.
 - *"It reads the whole conversation and keeps the final version. What changed is listed. If I'd said a different table than the card, it would ask me which one. Nothing is added until I confirm. **Copy for POS** gives one line for the real register."*
-- *[Free tier]* Each visit uses one of the day's 20 Gemini requests. If Google is busy, the card says FALLBACK MODE, and that's worth showing too.
+- *[Free tier]* Each visit uses one free-tier Gemini request. On 2026-11-26 a long visit took about 5 seconds. If Google is busy, the card says FALLBACK MODE, and that's worth showing too.
 
 ---
 

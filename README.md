@@ -1,6 +1,6 @@
 # Waiterly
 
-A tool for restaurant servers. Type or dictate a messy note ("1 needs two waters, 4 wants ranch, 7 ready for the check split three ways") and Waiterly turns it into prioritized, per-table tasks that the server approves before they go live. A manager view shows wait times, request patterns, every safeguard that fired, and a shift summary.
+A tool for restaurant servers. Tap a quick button, talk through a table visit, or type a messy note ("1 needs two waters, 4 wants ranch, 7 ready for the check split three ways") and Waiterly turns it into prioritized, per-table tasks that the server approves before they go live. A manager view shows wait times, request patterns, every safeguard that fired, and a shift summary.
 
 Built for CIS 3100, Application of Generative AI. All data is synthetic.
 
@@ -28,7 +28,7 @@ Built for CIS 3100, Application of Generative AI. All data is synthetic.
 npm install
 cp .env.example .env   # optional: add ANTHROPIC_API_KEY or GEMINI_API_KEY
 npm run dev            # http://localhost:5173 (the /api routes run locally too)
-npm test               # 188 unit + integration tests (AI calls mocked)
+npm test               # 191 unit + integration tests (AI calls mocked)
 node scripts/run-scenarios.mjs http://localhost:5173   # spec scenarios with PASS/FAIL
 ```
 
@@ -41,4 +41,10 @@ React + Vite + TypeScript, plain CSS, Lucide icons and Vercel serverless functio
 - [BUILD_LOG.md](docs/BUILD_LOG.md): every phase, decision and fix, and who did what
 - [TEST_RESULTS.md](docs/TEST_RESULTS.md): scenario inputs, expected and actual results
 - [DESIGN_RULES.md](docs/DESIGN_RULES.md): the design rules the UI follows
-- [ADD_API_KEY_LATER.md](docs/ADD_API_KEY_LATER.md): how to turn on the AI
+- [ADD_API_KEY_LATER.md](docs/ADD_API_KEY_LATER.md): how to turn on, change or tune the AI
+- [PROJECT_SUMMARY.md](docs/PROJECT_SUMMARY.md): problem, solution, stack and architecture
+- [AI_DESIGN.md](docs/AI_DESIGN.md): every prompt and schema word for word, validation, fallbacks
+- [RISKS_AND_LIMITATIONS.md](docs/RISKS_AND_LIMITATIONS.md): risks, mitigations, human oversight, limitations
+- [DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md): the demo video walkthrough
+
+**Version:** `v2-final` (feature freeze, 2026-11-26). `v1-stable` is the earlier rollback point, before the final feature update.

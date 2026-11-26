@@ -1,7 +1,7 @@
 # Waiterly Test Results
 
 **Status, November 26, 2026 (after the final feature update):** the live site runs **Gemini `gemini-3.8-flash` on Google's free tier (20 requests per day)**.
-- **Free-tier rule for this round:** at most **8 real-AI calls**. Everything else is tested against **mocked Gemini replies** that run through the real endpoint, provider code and validators. **7 real calls were used today**, so at least 13 of the 20 are left for the demo recording.
+- **Free-tier rule for this round:** at most **8 real-AI calls**. Everything else is tested against **mocked Gemini replies** that run through the real endpoint, provider code and validators. On 2026-11-26, 7 real calls went to `gemini-3.8-flash` (all ended in Google errors), then 1 to `gemini-3.5-flash-lite` (AI, 5.1 s, PASS). Free-tier limits are per model.
 - **Typed-note scenarios:** 5 real Gemini answers so far, and all 5 pass (Section 3).
 - **Table visits:** all 18 transcripts pass with mocked replies. On `gemini-3.8-flash`, all 3 live attempts got Google 504s. **After switching to `gemini-3.5-flash-lite` with minimal thinking, the long visit answered with real AI in 5.1 s and passed** (Section 7.6).
 - **UI:** 59/59 headless-Chrome checks at 375 px and 1440 px locally, and 31/31 non-AI checks on the live site.
@@ -168,6 +168,8 @@ Run on 2026-11-25 against the production deployment, with no API key set:
 ## 3. Spec scenarios: real AI (Gemini `gemini-3.8-flash`, live URL, 2026-11-26)
 
 **Setup:** `GEMINI_API_KEY` set in Vercel (production, free tier). `/api/health` returns `{"aiConfigured":true,"provider":"gemini","models":{"parse":"gemini-3.8-flash",...}}`. Runs used `node scripts/run-scenarios.mjs https://waiterly.vercel.app --require-ai --delay 7000`, where `--require-ai` makes any fallback answer a FAIL.
+
+**Not re-run after the switch to `gemini-3.5-flash-lite` (feature freeze).** These rows are real `gemini-3.8-flash` results. Every PENDING scenario passes with mocked Gemini replies through the real pipeline (`tests/scenarios.mock.test.ts`) and on the fallback path (Sections 1, 1b).
 
 **The verbatim console output of every run, including all failures, is in [`test-output/gemini-live-2026-11-26.md`](test-output/gemini-live-2026-11-26.md).** Only answers whose header says `ai` are counted here.
 

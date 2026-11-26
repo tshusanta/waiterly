@@ -89,10 +89,10 @@ The key is now stored, but **the running site doesn't see it yet**. Vercel only 
 From the project folder on your computer:
 
 ```bash
-node scripts/run-scenarios.mjs https://waiterly.vercel.app --json docs/test-output/ai-live.json
+node scripts/run-scenarios.mjs https://waiterly.vercel.app --require-ai --delay 7000 --json docs/test-output/ai-live.json
 ```
 
-It prints PASS/FAIL for every spec scenario against the real model. Paste the output into **Section 3** of `docs/TEST_RESULTS.md`, replacing the PENDING rows, then commit and push. Report any FAIL honestly. That section exists to show what the AI actually did.
+It prints PASS/FAIL for every spec scenario against the real model. `--require-ai` counts a fallback answer as FAIL. Against the live site, the script stops after **8 AI requests** to protect the free tier (`--max-ai-calls` changes that). Add `--visits --only "Visit: …"` to run table-visit transcripts. Paste the output into **Section 3** (notes) or **Section 7** (visits) of `docs/TEST_RESULTS.md`, then commit and push. Report any FAIL honestly. That section exists to show what the AI actually did.
 
 To test locally first, put the same line in a file named `.env` in the project folder (`ANTHROPIC_API_KEY=sk-ant-...`), run `npm run dev`, and point the script at `http://localhost:5173`.
 

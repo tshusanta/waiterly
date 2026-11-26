@@ -57,6 +57,6 @@ Guest asks ──► Server captures ──► AI organizes ──► [1] SERVER
 - **Single user, single device.** There's no shared floor state between servers, no kitchen display and no login. That's by design for a no-sign-in demo.
 - **The restaurant context is fixed in code** (menu, 86'd list, allergy policy). A real product would let managers edit it live.
 - **Rate limiting is per instance**, and there's no spend cap in code (see Risk 4).
-- **English only**, and dictation depends on the browser (hidden in Firefox).
+- **English only.** Voice visits depend on the browser's speech recognition. Where it's missing (Firefox, some iPhones), the mic opens a text box.
 - **Wait times are measured from when a task is approved**, not from when the guest asked.
 - **Not tested with real restaurant staff.** The test scenarios are synthetic.
