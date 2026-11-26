@@ -40,6 +40,35 @@ A chronological record of each phase: what was built, decisions made, problems h
 
 ---
 
-## Phase 1: Data model and seed data
+## 2026-11-25: Phase 1, Data model and seed data (done)
+
+| Item | Who | Notes |
+|---|---|---|
+| `shared/types.ts` | Agent | `Task`, `SafeguardEvent`, `Settings`, `ShiftState`. Categories, priorities and flags are `as const` arrays, so the same lists serve as TypeScript types and as the server-side whitelists in Phase 2. |
+| `shared/restaurant.ts` | Agent, from the student's spec | Juniper & Pine context: 86'd items (salmon, key lime pie), free refills, allergy policy, a synthetic menu, and the default section 1, 4, 7. `normalizeTables()` cleans the section list (whole numbers 1–30, unique, max 8). |
+| `src/state/seed.ts` | Agent | 6 open and 6 done tasks plus 5 safeguard-log entries, timestamped relative to "now". Decision: seed tasks refer to section *slots*, not fixed numbers, so a reset after changing the section in Settings still produces sensible data. |
+| `src/state/shift.ts` | Agent | Pure functions with no React: load, save, reset, add, complete, undo, log, plus the priority-then-age sort. They use a `KeyValueStore` interface so tests can pass a fake localStorage. |
+| `src/state/useShift.ts` | Agent | React hook that wraps the pure functions and saves on every change. Settings are stored under a separate key so **Reset shift** keeps the section choice. |
+| Phase 1 debug shell in `App.tsx` | Agent | Lists open tasks with Done and Reset buttons, just to prove the wiring. Replaced in Phase 3. |
+
+**Decisions**
+- Storage is versioned (`tabletap.shift.v1`). If the stored data is corrupt or missing, the app quietly reseeds instead of crashing.
+- Storage failures (private mode, storage full) are caught, and the app keeps running in memory.
+
+**How it was tested:** `npm test` passes 15/15 Vitest tests. They cover:
+- Seed counts, whitelist compliance and realistic timestamps.
+- At least one task waiting over 5 minutes, so the amber chip will show.
+- The allergy note.
+- Mapping the seed onto a custom section.
+- Empty storage, corrupt storage and no storage.
+- Save and reload round-trip, plus reset.
+- Complete and undo, and the sort order.
+- Settings normalization.
+
+`npm run build` is clean.
+
+---
+
+## Phase 2: AI parsing endpoint
 
 *(not started)*
