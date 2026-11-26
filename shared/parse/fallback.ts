@@ -121,6 +121,39 @@ function itemTask(clause: string, item: Item): Pick<RawTask, 'text' | 'category'
   }
 }
 
+export const FREE_TEXT_NOTE = 'Written from your words, not a known item. Check it reads right.'
+
+const SUBJECT_RE = /^(?:the\s+)?(?:guests?|lady|guy|man|woman|kid|they|she|he|we|i)\s+/i
+const SAYS_RE = /^(?:says?|said|asked|asks)\s+(?:that\s+)?(?:they|she|he)?\s*/i
+const ACTION_VERB_RE = /^(?:wants?|needs?|would like|would love)\s+to\s+/i
+const ITEM_VERB_RE =
+  /^(?:would like|wants?|needs?|asked for|asks for|is asking for|requests?|requested|could use|can (?:we|i) get|is waiting (?:on|for)|still needs)(?:\s+|$)/i
+const EMPTY_REST_RE = /^(?:for|to|and|please|too|also|the|a|an|some|more|it|that|this)?$/i
+
+/**
+ * Turn an unrecognized clause into a short command from its own words.
+ * "t1 needs chopped onions" -> "Bring chopped onions"; "4 wants to move tables" -> "Move tables".
+ * Returns "" when nothing usable is left, so the caller asks instead.
+ */
+export function freeTextTask(clause: string): string {
+  let s = clause.replace(/_/g, ' ').replace(TABLE_EXPLICIT, ' ')
+  if (TABLE_LEADING.test(s)) s = s.replace(new RegExp(`^\\s*(?:${NUM})\\b`, 'i'), ' ')
+  s = s.replace(/\s+/g, ' ').trim().replace(/^[,:-]\s*/, '')
+  s = s.replace(SUBJECT_RE, '').replace(SAYS_RE, '')
+  let rest: string
+  if (ACTION_VERB_RE.test(s)) {
+    rest = s.replace(ACTION_VERB_RE, '')
+  } else if (ITEM_VERB_RE.test(s)) {
+    rest = s.replace(ITEM_VERB_RE, '').replace(/^(?:a|an|some|the)\s+/i, '')
+    rest = rest && !EMPTY_REST_RE.test(rest) ? `Bring ${rest}` : ''
+  } else {
+    rest = s
+  }
+  rest = rest.replace(/[.!?]+$/, '').trim()
+  if (!rest || EMPTY_REST_RE.test(rest) || rest.replace(/[^a-z]/gi, '').length < 3) return ''
+  return capitalize(rest)
+}
+
 function capitalize(s: string) {
   return s ? s[0].toUpperCase() + s.slice(1) : s
 }
@@ -224,7 +257,12 @@ export function fallbackParse(note: string): RawParse {
     }
 
     if (found.length === 0) {
-      if (table !== null) {
+      // The table is clear but no keyword matched ("t1 needs chopped onions"):
+      // use the server's own words rather than asking. Review still catches odd wording.
+      const text = table !== null ? freeTextTask(rawClause) : ''
+      if (table !== null && text) {
+        out.tasks.push({ table, text, category: 'other', priority: 'normal', flags: [], note: FREE_TEXT_NOTE })
+      } else if (table !== null) {
         out.needs_clarification.push({ request: readable, question: `What does table ${table} need? ("${readable}")` })
       } else if (readable.split(' ').length >= 3) {
         out.needs_clarification.push({ request: readable, question: `Which table, and what do they need? ("${readable}")` })

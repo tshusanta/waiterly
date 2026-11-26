@@ -23,7 +23,12 @@ export function FlagBadge({ flag }: { flag: Flag }) {
   return <Badge tone={f.tone}>{f.label}</Badge>
 }
 
-/** Lowercase category pill, neutral, so it never competes with status badges. */
+/** "drinks" -> "Drinks". Title Case for category pills and chart labels. */
+export function categoryLabel(category: string): string {
+  return category.replace(/\b[a-z]/g, (c) => c.toUpperCase())
+}
+
+/** Neutral category pill, so it never competes with status badges. */
 export function Pill({ children }: { children: ReactNode }) {
   return <span className="pill">{children}</span>
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fallbackParse } from './fallback'
+import { FREE_TEXT_NOTE, fallbackParse } from './fallback'
 import { mentionedNumbers } from './text'
 import { ALLERGY_NOTE } from './types'
 import { ParseShapeError, validateParseResult } from './validate'
@@ -76,10 +76,34 @@ describe('fallback parser: edge cases', () => {
     expect(r.tasks.length + r.needs_clarification.length).toBe(1)
   })
 
-  it('asks rather than guesses for a table with an unknown request', () => {
-    const r = run('table 4 wants to talk about the weather')
+  it('clear table + unknown item: creates a task from the words, flagged for review', () => {
+    const r = run('t1 needs chopped onions')
+    expect(r.needs_clarification).toHaveLength(0)
+    expect(r.tasks).toHaveLength(1)
+    expect(r.tasks[0]).toMatchObject({ table: 1, text: 'Bring chopped onions', category: 'other', priority: 'normal' })
+    expect(r.tasks[0].note).toBe(FREE_TEXT_NOTE)
+  })
+
+  it('clear table + unknown action: uses the action as the task', () => {
+    const r = run('table 4 wants to move to a booth')
+    expect(r.tasks[0]).toMatchObject({ table: 4, text: 'Move to a booth', category: 'other' })
+  })
+
+  it('unknown words alongside known items keep both', () => {
+    const r = run('4 wants ranch and chopped onions')
+    expect(r.tasks.map((t) => t.text)).toEqual(['Bring ranch', 'Chopped onions'])
+    expect(r.tasks.every((t) => t.table === 4)).toBe(true)
+  })
+
+  it('still asks when the table is clear but there is no request at all', () => {
+    const r = run('table 4 wants')
     expect(r.tasks).toHaveLength(0)
     expect(r.needs_clarification[0].question).toMatch(/table 4/)
+  })
+
+  it('still never guesses a table for unknown words', () => {
+    const r = run('someone needs chopped onions')
+    expect(r.tasks).toHaveLength(0)
   })
 
   it('reads "table four", "#7" and "T1" as tables', () => {

@@ -584,6 +584,18 @@ button:disabled {
   border: 1px solid;
 }
 
+.rejected-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rejected-request {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
 .callout ul {
   display: flex;
   flex-direction: column;
@@ -813,11 +825,27 @@ button:disabled {
   margin-bottom: var(--s4);
 }
 
+.board {
+  container-type: inline-size;
+}
+
+/* Two even columns at most; rows stretch so neighbours share a height.
+   Completed is the last grid item: if it would sit alone in its row, it spans it. */
 .table-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--s4);
-  align-items: start;
+  align-items: stretch;
+}
+
+.table-grid > .done-list:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+@container (max-width: 560px) {
+  .table-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .table-card {
@@ -833,8 +861,9 @@ button:disabled {
 }
 
 .table-card-head h3 {
+  font-family: var(--font);
   font-size: var(--fs-lg);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .task-list > li + li {
@@ -920,7 +949,7 @@ button:disabled {
 }
 
 .done-list {
-  margin-top: var(--s4);
+  align-self: stretch;
 }
 
 .done-list summary {
@@ -1488,10 +1517,6 @@ button:disabled {
 
   .chip {
     min-height: 44px;
-  }
-
-  .table-grid {
-    grid-template-columns: minmax(0, 1fr);
   }
 
   .done-row {

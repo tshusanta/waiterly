@@ -1,6 +1,6 @@
 import { Ban, CircleHelp, Pencil, TriangleAlert, X } from 'lucide-react'
 import type { Clarification, DraftTask, Rejection } from '../../../shared/parse/types'
-import { Badge, FlagBadge, Pill } from '../../components/Badge'
+import { Badge, FlagBadge, Pill, categoryLabel } from '../../components/Badge'
 
 export interface DraftRow extends DraftTask {
   key: string
@@ -35,7 +35,7 @@ export function ReviewCard({ review, tables, onChange, onApprove, onDiscard, onE
     <section className="card review" aria-labelledby="review-title">
       <div className="card-head">
         <h2 id="review-title">Review before adding</h2>
-        <Badge tone={review.source === 'ai' ? 'ok' : 'warn'}>{review.source === 'ai' ? 'AI parsed' : 'Fallback parsed'}</Badge>
+        <Badge tone={review.source === 'ai' ? 'ok' : 'warn'}>{review.source === 'ai' ? 'AI parsed' : 'Fallback mode'}</Badge>
       </div>
 
       {review.notice && <p className="notice notice-warn">{review.notice}</p>}
@@ -73,7 +73,7 @@ export function ReviewCard({ review, tables, onChange, onApprove, onDiscard, onE
                 </button>
               </div>
               <div className="draft-meta">
-                <Pill>{r.category}</Pill>
+                <Pill>{categoryLabel(r.category)}</Pill>
                 {r.priority === 'high' && <Badge tone="neutral">High</Badge>}
                 {r.flags.map((f) => <FlagBadge key={f} flag={f} />)}
                 {r.note && (
@@ -111,8 +111,9 @@ export function ReviewCard({ review, tables, onChange, onApprove, onDiscard, onE
           </div>
           <ul>
             {review.rejected.map((x, i) => (
-              <li key={i}>
-                {x.request && <span className="mono">{x.request}</span>} <span>{x.reason}</span>
+              <li key={i} className="rejected-item">
+                {x.request && <span className="rejected-request mono">{x.request}</span>}
+                <span className="rejected-reason">{x.reason}</span>
               </li>
             ))}
           </ul>
@@ -126,11 +127,14 @@ export function ReviewCard({ review, tables, onChange, onApprove, onDiscard, onE
       )}
 
       <div className="review-actions">
-        <button className="btn btn-primary" onClick={onApprove} disabled={n === 0}>
-          {n === 1 ? 'Add 1 task' : `Add ${n} tasks`}
-        </button>
+        {/* No "Add 0 tasks": when nothing can be added, only Dismiss is offered. */}
+        {n > 0 && (
+          <button className="btn btn-primary" onClick={onApprove}>
+            {n === 1 ? 'Add 1 task' : `Add ${n} tasks`}
+          </button>
+        )}
         <button className="btn btn-ghost" onClick={onDiscard}>
-          {rows.length ? 'Discard' : 'Dismiss'}
+          {n > 0 ? 'Discard' : 'Dismiss'}
         </button>
       </div>
     </section>
