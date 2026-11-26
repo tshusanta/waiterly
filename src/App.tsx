@@ -6,6 +6,7 @@ import { useShift } from './state/useShift'
 import { ServiceView } from './views/service/ServiceView'
 import { SettingsView } from './views/SettingsView'
 import { StatsView } from './views/stats/StatsView'
+import { HowView } from './views/HowView'
 
 const VIEWS: View[] = ['service', 'stats', 'how', 'settings']
 const viewFromHash = (): View => {
@@ -27,6 +28,8 @@ export default function App() {
   const [collapsed, setCollapsed] = useState(readCollapsed)
   // AI status: health check on load, then whatever the last real parse returned.
   const [aiMode, setAiMode] = useState<'ai' | 'fallback' | 'checking'>('checking')
+  // A scenario picked on "How it works", loaded into the capture box.
+  const [prefill, setPrefill] = useState<{ note: string; id: number } | null>(null)
 
   useEffect(() => {
     getHealth().then((h) => setAiMode((m) => (m === 'checking' ? (h.aiConfigured ? 'ai' : 'fallback') : m)))
@@ -41,6 +44,7 @@ export default function App() {
   const navigate = useCallback((v: View) => {
     window.history.pushState(null, '', `#${v}`)
     setView(v)
+    setPrefill(null)
     window.scrollTo(0, 0)
   }, [])
 
@@ -70,13 +74,17 @@ export default function App() {
           <AiStatusBadge mode={aiMode} />
         </header>
 
-        {view === 'service' && <ServiceView shiftApi={shiftApi} onParsed={setAiMode} />}
+        {view === 'service' && <ServiceView shiftApi={shiftApi} onParsed={setAiMode} prefill={prefill} />}
         {view === 'stats' && <StatsView shiftApi={shiftApi} />}
         {view === 'settings' && <SettingsView shiftApi={shiftApi} />}
         {view === 'how' && (
-          <section className="card">
-            <p className="muted">How it works is built in Phase 5.</p>
-          </section>
+          <HowView
+            aiMode={aiMode}
+            onTryScenario={(note) => {
+              navigate('service')
+              setPrefill({ note, id: Date.now() }) // after navigate, which clears it
+            }}
+          />
         )}
 
         <footer className="footer muted small">

@@ -206,6 +206,33 @@ A later run found that "table 1 needs two waters" read the quantity as 1, becaus
 
 ---
 
-## Phase 5: How it works
+## 2026-11-25: Phase 5, How it works (done)
+
+| Item | Who | Notes |
+|---|---|---|
+| `shared/rules.ts`: single source for the 8 parse rules | Agent | **Decision:** the rules shown to the instructor must be *exactly* what the model gets. `server/prompt.ts` now builds its "Rules:" section from this list, and the page renders the same list, so they can't drift apart. A unit test asserts that every numbered rule appears verbatim in the system prompt. |
+| The flow | Agent, steps from the spec | 5 numbered steps (a real sequence, so numbering is allowed by the design rules): guest asks, server captures, AI organizes, server reviews and completes, manager reviews. |
+| AI rules + full system prompt | Agent | The 8 rules, plus a collapsible "Full system prompt" `<pre>` showing the real `PARSE_SYSTEM_PROMPT` for transparency. |
+| Models | Agent | Haiku 5.5 for parse and plan, Sonnet 5.5 for the summary, what runs when AI is down, and the live AI status badge. |
+| Restaurant context | Agent | Read from `shared/restaurant.ts`: name, 86'd items, free refills, allergy policy, menu. Marked SYNTHETIC. |
+| Safeguards table | Agent | 10 rows covering all 9 spec safeguards plus the summary number check. Each row says *how* it works and *where* it's enforced (UI / Prompt + code / Code / Server / Design). |
+| Test scenarios table | Agent | All 6 scenarios plus the empty/too-long edge case, with expected results. Each has a **Try it** button that loads the note into Service, ready to organize. |
+
+**Decisions**
+- The "Try it" prefill clears on any later navigation, so an old scenario never reappears in the capture box.
+- I removed a pointless icon re-export file I had started. Icons are imported directly from `lucide-react`.
+
+**How it was tested**
+- **Unit tests:** 55/55 pass (+4 prompt tests). The prompt contains all 8 rules verbatim, plus the 86'd items and allergy policy. **No graded scenario is used as a few-shot example**, so the scenarios stay an honest test. The note is wrapped in `<note>` tags.
+- **Chrome desktop:** all sections render, and the Complaint "Try it" opens Service with the note loaded. Going to Floor stats and back leaves the capture box empty.
+- **Phone, 375 px:** every view (Service, Floor stats, How it works, Settings) measures `scrollWidth` 357, with no horizontal scroll. The wide tables scroll inside their own `overflow-x: auto` containers, as the design rules allow.
+- **Code scan:** no `dangerouslySetInnerHTML`, `innerHTML` or `eval` anywhere in `src/`, so all AI text renders as plain text.
+
+**Problems and fixes**
+- **Phone overflow bug:** How it works was 603 px wide at 375 px. Cause: a `.sr-only` table-header label is `position: absolute`, and its scroll container wasn't positioned, so the label escaped to about x = 600. Fixed with `.table-scroll { position: relative }`. This also fixes the same latent issue in the Floor stats "Show as table" caption.
+
+---
+
+## Phase 6: Testing
 
 *(not started)*

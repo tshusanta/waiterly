@@ -16,12 +16,13 @@ type ShiftApi = ReturnType<typeof useShift>
 interface Props {
   shiftApi: ShiftApi
   onParsed: (source: 'ai' | 'fallback') => void
+  prefill: { note: string; id: number } | null
 }
 
-export function ServiceView({ shiftApi, onParsed }: Props) {
+export function ServiceView({ shiftApi, onParsed, prefill }: Props) {
   const { shift, settings, addTasks, completeTask, undoTask, addLogEvents } = shiftApi
   const now = useNow()
-  const [note, setNote] = useState('')
+  const [note, setNote] = useState(prefill?.note ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [review, setReview] = useState<ReviewState | null>(null)
