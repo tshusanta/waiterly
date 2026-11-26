@@ -9,28 +9,44 @@ const fake = vi.hoisted(() => ({
   parse: null as null | (() => Promise<unknown>),
   plan: null as null | (() => Promise<unknown>),
   summary: null as null | (() => Promise<unknown>),
+  breakFallback: false,
 }))
 
+// Fake provider: a null handler behaves like "no API key set".
 vi.mock('../server/provider.js', async () => {
-  const { AiUnavailableError } = await import('../server/providers/types.js')
-  const notSet = () => Promise.reject(new AiUnavailableError('ANTHROPIC_API_KEY is not set'))
+  const { AiNotConfiguredError, AiUnavailableError } = await import('../server/providers/types.js')
+  const notSet = () => Promise.reject(new AiNotConfiguredError())
   return {
+    AiNotConfiguredError,
     AiUnavailableError,
-    provider: {
+    getProvider: () => ({
       name: 'fake',
+      label: 'Fake',
       models: { parse: 'fake', plan: 'fake', summary: 'fake' },
       isConfigured: () => fake.configured,
       parseNote: () => (fake.parse ?? notSet)(),
       planTrips: () => (fake.plan ?? notSet)(),
       summarizeShift: () => (fake.summary ?? notSet)(),
+    }),
+  }
+})
+
+// Lets a test break the fallback parser itself, to prove the safety net.
+vi.mock('../shared/parse/fallback.js', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../shared/parse/fallback.js')>()
+  return {
+    ...real,
+    fallbackParse: (note: string) => {
+      if (fake.breakFallback) throw new TypeError('simulated bug in fallback')
+      return real.fallbackParse(note)
     },
   }
 })
 
-const { POST: parse } = await import('./parse')
-const { POST: plan } = await import('./plan')
-const { POST: summary } = await import('./summary')
-const { GET: health } = await import('./health')
+const { POST: parse } = await import('../api/parse')
+const { POST: plan } = await import('../api/plan')
+const { POST: summary } = await import('../api/summary')
+const { GET: health } = await import('../api/health')
 
 let ip = 0
 function req(body: unknown, opts: { raw?: string; ip?: string } = {}) {
@@ -46,6 +62,8 @@ const timeoutError = () => Object.assign(new Error('Request timed out.'), { name
 beforeEach(() => {
   fake.configured = true
   fake.parse = fake.plan = fake.summary = null
+  fake.breakFallback = false
+  vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
 describe('POST /api/parse: input validation (no AI call)', () => {
@@ -81,10 +99,21 @@ describe('POST /api/parse: input validation (no AI call)', () => {
 
 describe('POST /api/parse: fallback', () => {
   it('uses the keyword parser when no key is set, and says so', async () => {
-    const body = await (await parse(req({ note: '4 wants ranch', ...SECTION }))).json()
-    expect(body.source).toBe('fallback')
-    expect(body.notice).toMatch(/not configured/)
+    const res = await parse(req({ note: '4 wants ranch', ...SECTION }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toMatchObject({ source: 'fallback', reason: 'not_configured' })
+    expect(body.notice).toMatch(/not configured on this server \(no API key\)/)
     expect(body.tasks[0]).toMatchObject({ table: 4, text: 'Bring ranch' })
+  })
+
+  it('never returns a 500: a bug in the fallback still gives a safe 200 answer', async () => {
+    fake.breakFallback = true
+    const res = await parse(req({ note: '4 wants ranch', ...SECTION }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toMatchObject({ source: 'fallback', tasks: [] })
+    expect(body.notice).toMatch(/Nothing was added/)
   })
 
   it('falls back on a timeout with a timeout message', async () => {
@@ -176,10 +205,20 @@ describe('POST /api/summary', () => {
     expect(body.notice).toMatch(/Removed 1 AI line/)
   })
 
-  it('falls back to the stats-based summary', async () => {
-    const body = await (await summary(req({ stats }))).json()
-    expect(body.source).toBe('fallback')
+  it('with no key, says "AI summary needs an API key" and returns the stats summary', async () => {
+    const res = await summary(req({ stats }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toMatchObject({ source: 'fallback', reason: 'not_configured' })
+    expect(body.notice).toMatch(/^AI summary needs an API key/)
     expect(body.action).toMatch(/table 4/)
+  })
+
+  it('when the AI fails (not missing), says the AI is unavailable instead', async () => {
+    fake.summary = () => Promise.reject(new Error('overloaded'))
+    const body = await (await summary(req({ stats }))).json()
+    expect(body).toMatchObject({ source: 'fallback', reason: 'ai_error' })
+    expect(body.notice).toMatch(/unavailable/)
   })
 
   it('rejects a missing stats object', async () => {
@@ -191,6 +230,7 @@ describe('GET /api/health', () => {
   it('reports configuration without exposing a key', async () => {
     fake.configured = false
     const body = await health().json()
-    expect(body).toEqual({ ok: true, aiConfigured: false, provider: 'fake' })
+    expect(body).toMatchObject({ ok: true, aiConfigured: false, provider: 'fake' })
+    expect(JSON.stringify(body)).not.toMatch(/sk-|key=/i)
   })
 })

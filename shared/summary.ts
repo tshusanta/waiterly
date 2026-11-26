@@ -11,8 +11,11 @@ export interface ShiftSummary {
   action: string
 }
 
+export const NEEDS_KEY_NOTICE = 'AI summary needs an API key. Showing a summary written from the shift stats instead.'
+
 export interface SummaryResponse extends ShiftSummary {
   source: 'ai' | 'fallback'
+  reason?: 'not_configured' | 'ai_error'
   notice?: string
 }
 

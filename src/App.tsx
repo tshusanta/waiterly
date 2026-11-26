@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AiStatusBadge } from './components/Badge'
 import { NAV_ITEMS, Nav, type View } from './components/Nav'
-import { getHealth } from './lib/api'
+import { getHealth, type Health } from './lib/api'
 import { useShift } from './state/useShift'
 import { ServiceView } from './views/service/ServiceView'
 import { SettingsView } from './views/SettingsView'
@@ -30,9 +30,13 @@ export default function App() {
   const [aiMode, setAiMode] = useState<'ai' | 'fallback' | 'checking'>('checking')
   // A scenario picked on "How it works", loaded into the capture box.
   const [prefill, setPrefill] = useState<{ note: string; id: number } | null>(null)
+  const [health, setHealth] = useState<Health | null>(null)
 
   useEffect(() => {
-    getHealth().then((h) => setAiMode((m) => (m === 'checking' ? (h.aiConfigured ? 'ai' : 'fallback') : m)))
+    getHealth().then((h) => {
+      setHealth(h)
+      setAiMode((m) => (m === 'checking' ? (h.aiConfigured ? 'ai' : 'fallback') : m))
+    })
   }, [])
 
   useEffect(() => {
@@ -75,11 +79,12 @@ export default function App() {
         </header>
 
         {view === 'service' && <ServiceView shiftApi={shiftApi} onParsed={setAiMode} prefill={prefill} />}
-        {view === 'stats' && <StatsView shiftApi={shiftApi} />}
+        {view === 'stats' && <StatsView shiftApi={shiftApi} aiConfigured={health?.aiConfigured ?? null} />}
         {view === 'settings' && <SettingsView shiftApi={shiftApi} />}
         {view === 'how' && (
           <HowView
             aiMode={aiMode}
+            health={health}
             onTryScenario={(note) => {
               navigate('service')
               setPrefill({ note, id: Date.now() }) // after navigate, which clears it

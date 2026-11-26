@@ -6,8 +6,8 @@ export default defineConfig(({ mode }) => {
   // Load .env for the local /api handlers only. No VITE_ prefix, so the key
   // is never bundled into browser code.
   const env = loadEnv(mode, process.cwd(), '')
-  if (env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_API_KEY) {
-    process.env.ANTHROPIC_API_KEY = env.ANTHROPIC_API_KEY
+  for (const key of ['ANTHROPIC_API_KEY', 'GEMINI_API_KEY']) {
+    if (env[key] && !process.env[key]) process.env[key] = env[key]
   }
   return {
     plugins: [react(), apiDevPlugin()],

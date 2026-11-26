@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LoaderCircle, ScrollText } from 'lucide-react'
+import { KeyRound, LoaderCircle, ScrollText } from 'lucide-react'
 import { computeStats, type ShiftStats } from '../../../shared/stats'
 import type { SummaryResponse } from '../../../shared/summary'
 import type { SafeguardKind } from '../../../shared/types'
@@ -27,10 +27,13 @@ function Kpi({ label, value, detail }: { label: string; value: string; detail?: 
   )
 }
 
-function SummaryCard({ stats }: { stats: ShiftStats }) {
+function SummaryCard({ stats, aiConfigured }: { stats: ShiftStats; aiConfigured: boolean | null }) {
   const [summary, setSummary] = useState<SummaryResponse | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Known before clicking (from /api/health) or learned from the last response.
+  const needsKey = summary ? summary.reason === 'not_configured' : aiConfigured === false
 
   async function run() {
     setBusy(true)
@@ -52,19 +55,36 @@ function SummaryCard({ stats }: { stats: ShiftStats }) {
           <Badge tone={summary.source === 'ai' ? 'ok' : 'warn'}>{summary.source === 'ai' ? 'AI written' : 'Stats-based'}</Badge>
         )}
       </div>
-      <p className="muted small">Uses the numbers on this page only. No guest details or task text are sent.</p>
+      {needsKey ? (
+        <div className="callout callout-warn needs-key">
+          <div className="callout-head">
+            <KeyRound size={18} strokeWidth={1.5} aria-hidden="true" />
+            <strong>AI summary needs an API key</strong>
+          </div>
+          <p className="small">
+            No AI provider is set up on this server yet, so the summary below is written in code from the numbers on this
+            page. Every number in it is real.
+          </p>
+        </div>
+      ) : (
+        <p className="muted small">Uses the numbers on this page only. No guest details or task text are sent.</p>
+      )}
       <button className="btn btn-primary btn-block" onClick={run} disabled={busy}>
         {busy ? (
           <LoaderCircle size={18} strokeWidth={1.5} className="spin" aria-hidden="true" />
         ) : (
           <ScrollText size={18} strokeWidth={1.5} aria-hidden="true" />
         )}
-        {busy ? 'Writing summary…' : summary ? 'Rewrite summary' : 'Write shift summary'}
+        {busy
+          ? 'Writing summary…'
+          : needsKey
+            ? summary ? 'Refresh stats summary' : 'Write stats-based summary'
+            : summary ? 'Rewrite summary' : 'Write shift summary'}
       </button>
       {error && <p className="form-error" role="alert">{error}</p>}
       {summary && (
         <div className="summary-body" aria-live="polite">
-          {summary.notice && <p className="notice notice-warn small">{summary.notice}</p>}
+          {summary.notice && summary.reason !== 'not_configured' && <p className="notice notice-warn small">{summary.notice}</p>}
           <p className="summary-headline">{summary.headline}</p>
           <ul className="summary-insights">
             {summary.insights.map((line, i) => <li key={i}>{line}</li>)}
@@ -79,7 +99,7 @@ function SummaryCard({ stats }: { stats: ShiftStats }) {
   )
 }
 
-export function StatsView({ shiftApi }: { shiftApi: ReturnType<typeof useShift> }) {
+export function StatsView({ shiftApi, aiConfigured }: { shiftApi: ReturnType<typeof useShift>; aiConfigured: boolean | null }) {
   const { shift, settings } = shiftApi
   const now = useNow(30_000)
   const stats = computeStats(shift, now, settings.assignedTables)
@@ -157,7 +177,7 @@ export function StatsView({ shiftApi }: { shiftApi: ReturnType<typeof useShift> 
           )}
         </section>
 
-        <SummaryCard stats={stats} />
+        <SummaryCard stats={stats} aiConfigured={aiConfigured} />
       </div>
     </div>
   )

@@ -12,7 +12,7 @@ import {
   buildPlanUserMessage,
   buildSummaryUserMessage,
 } from '../prompt.js'
-import { AI_TIMEOUT_MS, AiUnavailableError, type AiProvider } from './types.js'
+import { AI_TIMEOUT_MS, AiNotConfiguredError, AiUnavailableError, type AiProvider } from './types.js'
 
 const MODELS = {
   parse: 'claude-haiku-5-5', // fast, cheap, structured extraction
@@ -22,7 +22,7 @@ const MODELS = {
 
 let client: Anthropic | null = null
 function getClient(): Anthropic {
-  if (!process.env.ANTHROPIC_API_KEY) throw new AiUnavailableError('ANTHROPIC_API_KEY is not set')
+  if (!process.env.ANTHROPIC_API_KEY) throw new AiNotConfiguredError()
   // No retries: the fallback is faster than a second attempt.
   client ??= new Anthropic({ timeout: AI_TIMEOUT_MS, maxRetries: 0 })
   return client
@@ -69,6 +69,7 @@ async function summaryCall(stats: unknown): Promise<unknown> {
 
 export const anthropicProvider: AiProvider = {
   name: 'anthropic',
+  label: 'Claude (Anthropic)',
   models: MODELS,
   isConfigured: () => Boolean(process.env.ANTHROPIC_API_KEY),
   parseNote: ({ note, section, openTasks }) =>

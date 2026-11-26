@@ -21,6 +21,7 @@ export interface Trip {
 
 export interface PlanResponse {
   source: 'ai' | 'fallback'
+  reason?: 'not_configured' | 'ai_error'
   trips: Trip[]
   notice?: string
 }

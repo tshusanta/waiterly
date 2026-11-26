@@ -1,13 +1,15 @@
 # Waiterly Test Results
 
-**Status, November 25, 2026:** every scenario passes on the **fallback path** (the keyword parser), both through HTTP and in unit tests. The **live Claude path has not been run yet** because no `ANTHROPIC_API_KEY` has been configured. Section 3 is marked **PENDING** and will be filled in with pasted output from the real model, locally and on the live URL, before submission. Nothing in this document claims AI results that haven't happened.
+**Status, November 25, 2026:** every scenario passes on the **fallback path** (the keyword parser), both through HTTP and in unit tests. **No real AI model has been run yet.** The student has no API key yet, so the app is deployed in FALLBACK MODE (see BUILD_LOG). All real-AI results are marked **PENDING** in Section 3 and will be filled in with pasted model output once a key is added (steps in [ADD_API_KEY_LATER.md](ADD_API_KEY_LATER.md)). Nothing in this document claims AI results that haven't happened.
 
 | Layer | What | Result |
 |---|---|---|
-| Unit + integration tests | `npm test` (Vitest, 6 files) | **76/76 pass** |
-| Spec scenarios, fallback path | `scripts/run-scenarios.mjs` against the local dev server | **8/8 pass** |
-| Spec scenarios, real AI (local) | same script, with a key | **PENDING** (no key yet) |
-| Spec scenarios, live URL | same script against the Vercel URL | **PENDING** (Phase 7) |
+| Unit + integration tests | `npm test` (Vitest, 7 files) | **82/82 pass** |
+| Spec scenarios, fallback path, local | `scripts/run-scenarios.mjs` against the dev server | **8/8 pass** |
+| Spec scenarios, fallback path, live URL | same script against the Vercel URL | Phase 7, filled in after deploy |
+| Spec scenarios, real AI: Claude | same script, with `ANTHROPIC_API_KEY` | **PENDING** (no key) |
+| Spec scenarios, real AI: Gemini | same script, with only `GEMINI_API_KEY` | **PENDING** (no key) |
+| No-key behaviour (never a 500, "needs an API key" message) | `tests/api.test.ts` | Pass |
 | UI checks | Chrome, desktop and 375 px | Pass (see BUILD_LOG Phases 3–5) |
 
 ---
@@ -96,7 +98,7 @@ Every AI-path response below also carried this notice: *"AI is not configured on
 
 ## 2. Safeguards against a misbehaving model (integration tests)
 
-**Why:** a good scenario run only shows the model behaved *this time*. These tests call the real `api/*.ts` handlers with a **fake AI provider that returns deliberately bad output**. That proves the server-side code catches model mistakes no matter what the model does. File: [`api/api.test.ts`](../api/api.test.ts). All pass.
+**Why:** a good scenario run only shows the model behaved *this time*. These tests call the real `api/*.ts` handlers with a **fake AI provider that returns deliberately bad output**. That proves the server-side code catches model mistakes no matter what the model does, and the same code runs for Claude and Gemini. File: [`tests/api.test.ts`](../tests/api.test.ts). All pass.
 
 | Bad model output (fake) | What the server returned | Result |
 |---|---|---|
@@ -111,20 +113,24 @@ Every AI-path response below also carried this notice: *"AI is not configured on
 | Trip plan with a **made-up task id** | Id dropped; the allergy trip is re-sorted to first | PASS |
 | Summary line **"30% faster than Tuesday"** (number not in the stats) | Line dropped, with notice "Removed 1 AI line…" | PASS |
 | 22 parse requests from one IP in a minute | Requests 21–22 get **429** with a `Retry-After` header | PASS |
-| `GET /api/health` | `{ok, aiConfigured, provider}`, never the key | PASS |
+| `GET /api/health` | `{ok, aiConfigured, provider, label, models}`, never the key | PASS |
+| **No key set:** parse | HTTP 200, keyword parser, `reason: "not_configured"`, notice "AI is not configured on this server (no API key)…" | PASS |
+| **No key set:** summary | HTTP 200, stats summary, notice "**AI summary needs an API key.** Showing a summary written from the shift stats instead." | PASS |
+| AI fails (key set but the call errors): summary | HTTP 200, stats summary, `reason: "ai_error"`, notice "AI is unavailable right now…" | PASS |
+| **Simulated bug inside the fallback parser itself** | HTTP **200** (not 500), no tasks, notice "Couldn't read that note. Nothing was added…" | PASS |
+| Provider selection (`server/provider.test.ts`) | Claude if `ANTHROPIC_API_KEY`, else Gemini if `GEMINI_API_KEY`, else none. Blank values count as unset. | PASS |
 
 ---
 
-## 3. Spec scenarios: real Claude (`claude-haiku-5-5`): PENDING
+## 3. Spec scenarios: real AI: PENDING
 
-**Not run yet. No API key has been configured** (student decision, 2026-11-25; see BUILD_LOG). When the key is added, the same script is run and its output pasted here verbatim:
+**Not run. No API key exists yet.** Student decision, 2026-11-25: deploy in FALLBACK MODE now and add a key later (see BUILD_LOG). The Claude and Gemini code paths are written and type-checked against the real SDKs, and their safeguards are proven with a fake provider (Section 2). **No real model has produced any output for this project yet.** When a key is added ([ADD_API_KEY_LATER.md](ADD_API_KEY_LATER.md), Step 5), the same script is run and its output pasted here verbatim:
 
 ```
-node scripts/run-scenarios.mjs http://localhost:5173 --json docs/test-output/ai-local.json
 node scripts/run-scenarios.mjs https://<live-url> --json docs/test-output/ai-live.json
 ```
 
-| Scenario | Local (AI) | Live URL (AI) |
+| Scenario | Claude (`claude-haiku-5-5`) | Gemini (`gemini-2.5-flash`) |
 |---|---|---|
 | Dinner rush | PENDING | PENDING |
 | Allergy | PENDING | PENDING |
@@ -134,8 +140,10 @@ node scripts/run-scenarios.mjs https://<live-url> --json docs/test-output/ai-liv
 | Prompt injection | PENDING | PENDING |
 | Empty note | PENDING | PENDING |
 | Too long | PENDING | PENDING |
+| Trip plan | PENDING | PENDING |
+| Shift summary (and lines dropped by the number filter) | PENDING (`claude-sonnet-5-5`) | PENDING |
 
-The trip plan (Haiku) and the shift summary (Sonnet 5.5, including how many lines the number filter drops) will also be recorded here.
+Only one provider is needed for the submission. Claude is the one the spec names.
 
 ---
 

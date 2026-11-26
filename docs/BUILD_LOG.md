@@ -276,6 +276,45 @@ A later run found that "table 1 needs two waters" read the quantity as 1, becaus
 
 ---
 
+## 2026-11-25: Decision, deploy in FALLBACK MODE with switchable AI providers (student)
+
+**Decision (Student):** there's no API key yet, so deploy now in FALLBACK MODE. Requirements set by the student:
+1. Everything works with no key: never a crash or a 500.
+2. A visible FALLBACK MODE badge.
+3. "AI summary needs an API key" on the manager summary.
+4. The provider is chosen by environment variable: `ANTHROPIC_API_KEY` uses Claude, else `GEMINI_API_KEY` uses Gemini (`gemini-2.5-flash`, `@google/genai`), else the fallback.
+5. Real-AI tests marked PENDING.
+6. A click-by-click guide for adding a key later.
+
+| Item | Who | Notes |
+|---|---|---|
+| `server/provider.ts`: `getProvider()` | Agent | Reads env vars **per request**: Anthropic, then Gemini, then none. Blank values count as unset. Replaces the old one-line constant swap, and is still the single place that decides. Adding a key in Vercel and redeploying switches AI with no code change. |
+| `server/providers/gemini.ts` | Agent, provider requested by the student | `gemini-2.5-flash` with `responseMimeType: application/json` and `responseJsonSchema` (the **same** JSON schemas and prompts as Claude), `thinkingBudget: 0` for speed, and a 15 s timeout (`AbortSignal.timeout` + `httpOptions.timeout`). Treats any finish reason other than `STOP` as a failure. SDK field names were checked against the installed `@google/genai` 3.6.1 type definitions, not guessed. |
+| `server/providers/none.ts` + `AiNotConfiguredError` | Agent | With no key, every call throws a dedicated error. The endpoints use it to tell "no key" (`reason: "not_configured"`) apart from "AI failed" (`reason: "ai_error"`), so the UI shows the right message. |
+| Never-500 safety net | Agent | Each endpoint's handler is wrapped. Even an unexpected bug, including inside the fallback code, returns HTTP 200 with a safe, readable response ("Nothing was added…") and logs the stack on the server. Proven by a test that deliberately breaks the fallback parser. |
+| "AI summary needs an API key" | Agent | `/api/summary` returns that notice when no key is set. The Floor stats summary card shows an amber **AI summary needs an API key** callout *before and after* clicking (it knows from `/api/health`). The button reads "Write stats-based summary", and the summary is still produced from real numbers. |
+| FALLBACK MODE badge | Agent (existing) | Shown in every page header. `/api/health` now has a 6 s timeout, so the badge can never get stuck on "CHECKING AI". |
+| How it works → Models | Agent | Shows the provider active *right now* (from `/api/health`) and explains the env-var selection. |
+| `.env.example` | Agent | Both `ANTHROPIC_API_KEY=` and `GEMINI_API_KEY=`, with the selection order explained. Vite dev loads both server-side only. |
+| `docs/ADD_API_KEY_LATER.md` | Agent | Click-by-click: get a key (Anthropic console or Google AI Studio), add it in Vercel → Settings → Environment Variables, redeploy from Deployments → ⋯ → Redeploy, verify with `/api/health` and the badge, record results with the scenario script, and change, remove or rotate a key. It notes that Vercel only applies env vars to new deployments. |
+| Endpoint tests moved `api/api.test.ts` → `tests/api.test.ts` | Agent | **Found during deploy prep:** Vercel deploys every file in `api/` as a public function, so the test file would have become a live endpoint (`/api/api.test`). |
+
+**Rename check (requested):** a case-insensitive repo search for `table[\s_-]?tap` (excluding `node_modules`) finds only the intentional record in this log's rename entry. Details are in the Phase 7 entry.
+
+**How it was tested:** `npm test` passes 82/82 (+6). The new tests cover:
+- provider selection (Anthropic over Gemini over none, blank equals unset);
+- no-key parse returning 200 + `not_configured`;
+- no-key summary returning "AI summary needs an API key";
+- AI-error summary returning "unavailable";
+- a deliberately broken fallback still returning 200;
+- health never exposing a key.
+
+`tsc` is clean, including the Gemini provider against the real SDK types.
+
+**Not tested (no keys):** any real Claude or Gemini call. TEST_RESULTS Section 3 is PENDING for both.
+
+---
+
 ## Phase 7: Deploy
 
-*(not started)*
+*(in progress)*

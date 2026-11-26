@@ -72,6 +72,7 @@ export async function summarizeShift(stats: ShiftStats): Promise<SummaryResponse
     if (err instanceof ApiMessageError) throw err
     return {
       source: 'fallback',
+      reason: 'ai_error',
       notice: "Couldn't reach the server. Summary written on this device from the shift stats.",
       ...fallbackSummary(stats),
     }
@@ -80,15 +81,20 @@ export async function summarizeShift(stats: ShiftStats): Promise<SummaryResponse
 
 export interface Health {
   aiConfigured: boolean
-  provider?: string
+  provider: 'anthropic' | 'gemini' | 'none'
+  label?: string
+  models?: { parse: string; plan: string; summary: string }
 }
 
+const NO_AI: Health = { aiConfigured: false, provider: 'none' }
+
+/** Which AI is active. Times out after 6 s, so the badge never sticks on "checking". */
 export async function getHealth(): Promise<Health> {
   try {
-    const res = await fetch('/api/health')
-    if (!res.ok) return { aiConfigured: false }
-    return (await res.json()) as Health
+    const res = await fetch('/api/health', { signal: AbortSignal.timeout(6_000) })
+    if (!res.ok) return NO_AI
+    return { ...NO_AI, ...((await res.json()) as Partial<Health>) }
   } catch {
-    return { aiConfigured: false }
+    return NO_AI
   }
 }

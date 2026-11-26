@@ -5,6 +5,7 @@ import { PARSE_RULES } from '../../shared/rules'
 import { SCENARIOS } from '../../shared/scenarios'
 import { PARSE_SYSTEM_PROMPT } from '../../server/prompt'
 import { AiStatusBadge } from '../components/Badge'
+import type { Health } from '../lib/api'
 
 // A real sequence, so it is numbered.
 const FLOW = [
@@ -48,12 +49,12 @@ const SAFEGUARDS: { what: string; how: string; where: string }[] = [
   },
   {
     what: 'Fallback when AI is down',
-    how: 'A keyword parser, rule-based trip planner and stats-based summary run on any AI error or after a 15 second timeout. The FALLBACK MODE badge says so.',
+    how: 'A keyword parser, rule-based trip planner and stats-based summary run when no API key is set, on any AI error, or after a 15 second timeout. The FALLBACK MODE badge says so. The endpoints never return a server error: even an unexpected bug returns a safe, readable answer.',
     where: 'Code + UI',
   },
   {
     what: 'API key server-side, rate limited',
-    how: 'The key lives only in a server environment variable. The browser never sees it. Each IP gets 20 parse or plan requests and 10 summaries per minute.',
+    how: 'Keys (ANTHROPIC_API_KEY or GEMINI_API_KEY) live only in server environment variables. The browser never sees them. Each IP gets 20 parse or plan requests and 10 summaries per minute.',
     where: 'Server',
   },
   {
@@ -70,10 +71,11 @@ const SAFEGUARDS: { what: string; how: string; where: string }[] = [
 
 interface Props {
   aiMode: 'ai' | 'fallback' | 'checking'
+  health: Health | null
   onTryScenario: (note: string) => void
 }
 
-export function HowView({ aiMode, onTryScenario }: Props) {
+export function HowView({ aiMode, health, onTryScenario }: Props) {
   return (
     <div className="how">
       <section className="card" aria-labelledby="flow-title">
@@ -119,14 +121,25 @@ export function HowView({ aiMode, onTryScenario }: Props) {
               <AiStatusBadge mode={aiMode} />
             </div>
             <dl className="facts">
-              <dt>Task parsing</dt>
-              <dd><span className="mono">claude-haiku-5-5</span>. Fast, low cost, structured JSON output.</dd>
-              <dt>Trip planning</dt>
-              <dd><span className="mono">claude-haiku-5-5</span>. Plans are checked against real task ids.</dd>
-              <dt>Shift summary</dt>
-              <dd><span className="mono">claude-sonnet-5-5</span>. Clearer writing for managers. Gets numbers only.</dd>
-              <dt>When AI is down</dt>
-              <dd>Keyword parser, rule-based planner and stats-based summary, all written in plain code.</dd>
+              <dt>Active now</dt>
+              <dd>
+                {health === null
+                  ? 'Checking…'
+                  : health.aiConfigured
+                    ? `${health.label ?? health.provider}: ${health.models?.parse}${health.models?.summary !== health.models?.parse ? ` and ${health.models?.summary}` : ''}`
+                    : 'No AI key is set on this server, so every feature runs on its plain-code fallback.'}
+              </dd>
+              <dt>How it's chosen</dt>
+              <dd>
+                By server setting: <span className="mono">ANTHROPIC_API_KEY</span> uses Claude (
+                <span className="mono">claude-haiku-5-5</span> to parse and plan, <span className="mono">claude-sonnet-5-5</span> for
+                the summary). Otherwise <span className="mono">GEMINI_API_KEY</span> uses <span className="mono">gemini-2.5-flash</span>.
+                With neither, the fallbacks run.
+              </dd>
+              <dt>Fallbacks</dt>
+              <dd>Keyword parser, rule-based trip planner and stats-based summary. They also run whenever the AI is slow or fails.</dd>
+              <dt>Same safeguards</dt>
+              <dd>Every provider's output goes through the same validation code, so switching AI can't skip a safeguard.</dd>
             </dl>
           </section>
 

@@ -28,8 +28,12 @@ export interface ParseResult {
   skipped: string[]
 }
 
+/** Why the fallback ran: no key configured, or the AI failed. */
+export type FallbackReason = 'not_configured' | 'ai_error'
+
 export interface ParseResponse extends ParseResult {
   source: 'ai' | 'fallback'
+  reason?: FallbackReason
   /** Shown to the server when the fallback ran, so they know why. */
   notice?: string
 }
