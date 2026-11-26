@@ -2,7 +2,7 @@
 
 How Waiterly uses generative AI: what the models are asked, the exact prompts and schemas, how every reply is checked in code, and what happens when there's no AI.
 
-> **Status (2026-11-26):** the deployed app at https://waiterly.vercel.app runs **real AI with Gemini `gemini-3.8-flash`** (free tier). Real-model results are in [TEST_RESULTS.md](TEST_RESULTS.md) §3: every answer Gemini actually returned passed, and none needed code-level correction. The safeguards are also proven against a deliberately misbehaving fake model (§2). The Claude path is written and type-checked but hasn't run, because there's no Anthropic key.
+> **Status (2026-11-26):** the deployed app at https://waiterly.vercel.app runs **real AI with Gemini `gemini-3.5-flash-lite`** (free tier, set by `GEMINI_MODEL` in Vercel; the code default is `gemini-3.8-flash`). Real-model results are in [TEST_RESULTS.md](TEST_RESULTS.md) §3: every answer Gemini actually returned passed, and none needed code-level correction. The safeguards are also proven against a deliberately misbehaving fake model (§2). The Claude path is written and type-checked but hasn't run, because there's no Anthropic key.
 
 ---
 
@@ -34,6 +34,7 @@ The provider is chosen **per request by environment variable** in `server/provid
 - **Haiku 5.5 for parsing and planning.** These are short, structured extraction tasks that run on every note during a rush. They need speed and low cost (about $0.10 per million input tokens), not deep reasoning. Effort is set to `low`.
 - **Sonnet 5.5 for the summary.** A manager reads it as prose, so writing quality matters more, and it runs only when a manager clicks.
 - **Gemini 3.8 Flash** is the alternative for when only a Google key is available, and it's **what the live site uses now**. It gets the same prompts, the same JSON schemas and **the same validation code**, so switching providers can't weaken a safeguard.
+  - **Free-tier tuning (2026-11-26):** `/api/health?models=1` asked Google's ListModels which flash models this key can use. The live site switched to the newest flash-lite, **`gemini-3.5-flash-lite`**, with **MINIMAL** thinking. The long visit then answered in **5.1 s**, where `gemini-3.8-flash` with LOW thinking had timed out at 15 s and 25 s.
   - The spec named `gemini-2.5-flash`, but Google returns 404 "no longer available to new users" for it. The default became `gemini-3.8-flash` with the student's approval.
   - `GEMINI_MODEL` overrides it from Vercel without a code change.
 - **The fallback is a real feature, not a stub.** The app has to keep working during an outage or with no key, and the spec forbids scripted fake AI output, so the fallback is honest deterministic code, clearly labelled.
@@ -43,7 +44,7 @@ The provider is chosen **per request by environment variable** in `server/provid
 | | Claude | Gemini |
 |---|---|---|
 | Output format | Structured outputs: `output_config.format = {type: "json_schema", schema}` | `responseMimeType: "application/json"` + `responseJsonSchema` |
-| Reasoning | `output_config.effort: "low"` | `thinkingConfig.thinkingLevel: LOW` for 3.x (`MINIMAL` is rejected by `gemini-3.8-flash`), `thinkingBudget: 0` for 2.x |
+| Reasoning | `output_config.effort: "low"` | `thinkingConfig`: MINIMAL for 3.x flash-lite, LOW for other 3.x (`MINIMAL` is rejected by `gemini-3.8-flash`), `thinkingBudget: 0` (off) for 2.x. `GEMINI_THINKING` overrides it. If Google rejects a level with 400, the call retries once on LOW and remembers. |
 | Max output | 4096 tokens (parse, plan) · 2048 (summary) | default |
 | Timeout | 15 s, `maxRetries: 0` (the fallback is faster than a retry) | One 15 s budget per call (`AbortSignal.timeout` + `httpOptions.timeout`) |
 | Retries | none | **One** retry after 0.7 s on `503` overload or a per-minute `429`, only if at least 6 s of the budget is left. Never on a **daily-quota** `429` (that wastes a request), a `504` or a `400`. |

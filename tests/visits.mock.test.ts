@@ -128,6 +128,12 @@ describe('table-visit transcripts with mocked Gemini replies (same checks as a l
 })
 
 describe('the code enforces the table rules even when the model gets them wrong', () => {
+  it('keeps the arrow in changes ("Iced tea -> Coke" -> "Iced tea → Coke"), seen stripped live', async () => {
+    google.replies.push(visit([t(4, 'card', 'Bring 1 Coke', 'drinks', { changes: ['Iced tea -> Coke', '2 waters->3 waters'] })]))
+    const body = await (await sendVisit({ transcript: 'iced tea actually a Coke', startTable: 4 })).json()
+    expect(body.tasks[0].changes).toEqual(['Iced tea → Coke', '2 waters → 3 waters'])
+  })
+
   it('card visit: model invents table 7 although no table was said -> card table', async () => {
     google.replies.push(visit([t(7, 'spoken', 'Bring 2 waters', 'drinks')]))
     const body = await (await sendVisit({ transcript: 'two waters please', startTable: 4 })).json()

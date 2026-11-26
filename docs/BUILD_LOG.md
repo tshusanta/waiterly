@@ -454,3 +454,18 @@ A later run found that "table 1 needs two waters" read the quantity as 1, becaus
 
 **Not verified:** real-AI visit analysis, a real microphone or phone, and vibration on hardware. See TEST_RESULTS §7.3–7.4 for the command to finish the real-AI visit check.
 
+## 2026-11-26 (evening): free-tier Gemini tuning
+
+**Student request:** no paid API. Make the free Gemini tier as reliable as possible: list the available flash and flash-lite models, switch to the fastest flash-lite with minimal thinking through `GEMINI_MODEL`, shorten the visit prompt, redeploy, and run **one** real visit test. At most 3 real requests.
+
+| Item | Who | Notes |
+|---|---|---|
+| ListModels | Agent | The key lives only in Vercel and the agent doesn't handle it, so a read-only `GET /api/health?models=1` calls Google's ListModels **server-side** and returns model names and limits only, never the key. It's a metadata call with no generation quota, rate limited to 5 a minute. Result: TEST_RESULTS §7.6. Google reports no free-tier rate limits there. |
+| Model switch | Agent, requested by the student | `GEMINI_MODEL=gemini-3.5-flash-lite` (newest flash-lite) set with `vercel env add`. It's a model name, not a secret. `/api/health` confirms it. |
+| Thinking | Agent | MINIMAL for 3.x flash-lite, off for 2.x, LOW otherwise. A `GEMINI_THINKING` override. A 400 "thinking" rejection retries once on LOW and is remembered. +3 tests. |
+| Shorter visit prompt | Agent | 5,239 → 4,258 characters. All rules kept, and the existing prompt tests still check each rule and phrase. Redundant schema-enforced lists removed, plus a "leave note and changes empty" instruction to shorten output. AI_DESIGN regenerated. |
+| Real visit test | Agent | **1 real request: AI answered in 5.1 s, PASS** (3.8-flash had hit 504 at 15 s and 25 s) |
+| Arrow bug | Agent | The live answer showed "Iced tea - Coke": the sanitizer strips `>`. Arrows now become "→", with a test. |
+
+**Tests:** 191/191.
+

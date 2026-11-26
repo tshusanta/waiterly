@@ -13,7 +13,9 @@ const MAX_CHANGES_PER_TASK = 4
 const MAX_VISIT_CHANGES = 8
 
 function cleanList(value: unknown, max: number, chars = 60): string[] {
-  return Array.isArray(value) ? value.map((v) => cleanString(v, chars)).filter(Boolean).slice(0, max) : []
+  // "Iced tea -> Coke": keep the arrow (cleanString strips < and > as markup).
+  const arrow = (v: unknown) => (typeof v === 'string' ? v.replace(/\s*-+>\s*/g, ' → ') : v)
+  return Array.isArray(value) ? value.map((v) => cleanString(arrow(v), chars)).filter(Boolean).slice(0, max) : []
 }
 
 export function validateVisitResult(raw: unknown, ctx: VisitContext): VisitResult {

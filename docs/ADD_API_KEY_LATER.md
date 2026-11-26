@@ -2,7 +2,7 @@
 
 **Live site:** https://waiterly.vercel.app · **Vercel project:** `waiterly` (team `sushant-52c2`) · **Repo:** https://github.com/tshusanta/waiterly
 
-> **Status (2026-11-26):** `GEMINI_API_KEY` is set in Vercel (production, sensitive), so the live site runs **Gemini `gemini-3.8-flash`**. It's on Google's **free tier: 20 requests per day per model**. Past that, the app uses its fallback until the quota resets at midnight Pacific. To lift the limit, either enable billing on the Google Cloud project behind the key (start from the key's project in Google AI Studio; Google's rate-limits page explains the paid tiers), or add an `ANTHROPIC_API_KEY` (Claude takes priority).
+> **Status (2026-11-26):** `GEMINI_API_KEY` is set in Vercel (production, sensitive), so the live site runs **Gemini `gemini-3.5-flash-lite`**, chosen by `GEMINI_MODEL=gemini-3.5-flash-lite` (set in Vercel 2026-11-26, plain model name, no code change). The free-tier daily limit is per model. `/api/health?models=1` lists the flash models your key can use. It's on Google's **free tier: 20 requests per day per model**. Past that, the app uses its fallback until the quota resets at midnight Pacific. To lift the limit, either enable billing on the Google Cloud project behind the key (start from the key's project in Google AI Studio; Google's rate-limits page explains the paid tiers), or add an `ANTHROPIC_API_KEY` (Claude takes priority).
 
 Waiterly works with or without a key. With no key it runs in **FALLBACK MODE**: a keyword parser, a rule-based trip planner and a summary written from the stats. Adding or changing a key switches the AI **with no code change**. You set one environment variable in Vercel and redeploy.
 
@@ -11,7 +11,7 @@ Waiterly works with or without a key. With no key it runs in **FALLBACK MODE**: 
 | Set in Vercel | AI used |
 |---|---|
 | `ANTHROPIC_API_KEY` | Claude: `claude-haiku-5-5` parses notes and plans trips, `claude-sonnet-5-5` writes the summary. **Use this one for the graded submission**, since the project spec names Claude. |
-| only `GEMINI_API_KEY` | Gemini: `gemini-3.8-flash` for everything **(current state)**. Optional `GEMINI_MODEL` overrides the model. |
+| only `GEMINI_API_KEY` | Gemini: `gemini-3.8-flash` by default. **Current state:** `GEMINI_MODEL=gemini-3.5-flash-lite`. Optional `GEMINI_THINKING` (off / minimal / low / medium / high) overrides the thinking level. |
 | neither | FALLBACK MODE |
 
 If both are set, Claude wins. The selection logic is in `server/provider.ts`.

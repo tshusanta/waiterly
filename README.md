@@ -6,7 +6,7 @@ Built for CIS 3100, Application of Generative AI. All data is synthetic.
 
 **Live demo: https://waiterly.vercel.app**. Open it in any browser, with no sign-in. Each visitor gets their own sample shift.
 
-> **Current mode: AI ONLINE, using Gemini (`gemini-3.8-flash`, Google free tier).** Notes, trip plans and the manager summary are handled by Gemini. Every answer is checked by server-side code, and every task is approved by the server.
+> **Current mode: AI ONLINE, using Gemini `gemini-3.5-flash-lite` (Google free tier, chosen with the `GEMINI_MODEL` setting in Vercel, minimal thinking for speed).** Notes, trip plans and the manager summary are handled by Gemini. Every answer is checked by server-side code, and every task is approved by the server.
 >
 > If Gemini is overloaded, slow (over 15 s) or past its **20-requests-per-day free limit**, the app automatically switches to its built-in fallback (keyword parser, rule-based planner, stats summary). The badge then shows **FALLBACK MODE**, so a tester always sees which one answered.
 >

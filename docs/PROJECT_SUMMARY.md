@@ -3,7 +3,7 @@
 **Live:** https://waiterly.vercel.app (public, no sign-in) · **Code:** https://github.com/tshusanta/waiterly
 CIS 3100, Application of Generative AI. "Business AI Innovation Challenge" final project. All data is synthetic.
 
-> **Current mode: AI ONLINE, using Gemini (`gemini-3.8-flash`, free tier).** Since 2026-11-26 the live app uses real AI: `GEMINI_API_KEY` is set in Vercel. When Gemini is overloaded, slow or past its 20-requests-per-day free limit, the app falls back to its keyword parser, rule-based planner and stats summary. The badge switches to FALLBACK MODE so testers can tell. Real-model results: [TEST_RESULTS.md](TEST_RESULTS.md) §3 (5/5 real answers pass, 3 checks pending).
+> **Current mode: AI ONLINE, using Gemini `gemini-3.5-flash-lite` (free tier, set by `GEMINI_MODEL` in Vercel).** Since 2026-11-26 the live app uses real AI: `GEMINI_API_KEY` is set in Vercel. When Gemini is overloaded, slow or past its 20-requests-per-day free limit, the app falls back to its keyword parser, rule-based planner and stats summary. The badge switches to FALLBACK MODE so testers can tell. Real-model results: [TEST_RESULTS.md](TEST_RESULTS.md) §3 (5/5 real answers pass, 3 checks pending).
 
 ---
 
@@ -47,7 +47,7 @@ The server types or dictates one messy note, for example *"table 1 needs two wat
 | **Lucide icons, 1.5 px stroke** | Crisp and consistent. No emojis anywhere. |
 | **Vercel serverless functions** (`/api`) | A public URL for the instructor, and **API keys stay server-side**. Free hosting. |
 | **Claude via `@anthropic-ai/sdk`** | `claude-haiku-5-5` for fast, cheap structured parsing and planning. `claude-sonnet-5-5` for the manager's prose summary. Structured outputs enforce the JSON schema. |
-| **Gemini via `@google/genai`** (alternative) | `gemini-3.8-flash` if only a Google key is available. Same prompts, schemas and validators. |
+| **Gemini via `@google/genai`** (alternative) | Used when only a Google key is available. Live: `gemini-3.5-flash-lite` via `GEMINI_MODEL`, the fastest flash-lite this key can use, with minimal thinking (code default `gemini-3.8-flash`). Same prompts, schemas and validators. |
 | **Deterministic fallbacks** | The app works with no key, during outages and on timeouts, and the spec forbids fake AI output, so the fallback is honest code. |
 | **localStorage** | Each tester gets their own sandbox shift with no accounts and no stored personal data. "Reset shift" restores the sample. |
 | **Vitest** | 188 unit and integration tests. They include mocked Gemini replies for every scenario and all 18 visit transcripts, a model that misbehaves on purpose, and a fake speech recognizer. |
@@ -79,7 +79,7 @@ flowchart LR
   end
 
   CLAUDE["Claude API: Haiku 5.5 / Sonnet 5.5"]
-  GEMINI["Gemini API: 3.8 Flash"]
+  GEMINI["Gemini API: 3.5 Flash-Lite (GEMINI_MODEL)"]
 
   UI -- "note + section + open tasks" --> PARSE
   UI -- "open tasks" --> PLAN

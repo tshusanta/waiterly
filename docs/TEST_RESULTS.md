@@ -3,19 +3,19 @@
 **Status, November 26, 2026 (after the final feature update):** the live site runs **Gemini `gemini-3.8-flash` on Google's free tier (20 requests per day)**.
 - **Free-tier rule for this round:** at most **8 real-AI calls**. Everything else is tested against **mocked Gemini replies** that run through the real endpoint, provider code and validators. **7 real calls were used today**, so at least 13 of the 20 are left for the demo recording.
 - **Typed-note scenarios:** 5 real Gemini answers so far, and all 5 pass (Section 3).
-- **Table visits:** all 18 transcripts pass with mocked replies. **Real Gemini has not yet answered a visit.** All 3 live attempts ended in Google 504 `DEADLINE_EXCEEDED`, at 15 s and again at 25 s. The fallback answered each time, and the app said so (Section 7).
+- **Table visits:** all 18 transcripts pass with mocked replies. On `gemini-3.8-flash`, all 3 live attempts got Google 504s. **After switching to `gemini-3.5-flash-lite` with minimal thinking, the long visit answered with real AI in 5.1 s and passed** (Section 7.6).
 - **UI:** 59/59 headless-Chrome checks at 375 px and 1440 px locally, and 31/31 non-AI checks on the live site.
 
 Nothing in this document claims an AI result that didn't happen.
 
 | Layer | What | Result |
 |---|---|---|
-| Unit + integration tests | `npm test` (Vitest, 16 files) | **188/188 pass** |
+| Unit + integration tests | `npm test` (Vitest, 16 files) | **191/191 pass** |
 | Typed-note scenarios, mocked Gemini | `tests/scenarios.mock.test.ts` (same checks as the live runner) | **10/10 pass** + 9 wrong-reply and error cases |
 | **Table-visit transcripts, mocked Gemini** | `tests/visits.mock.test.ts`, 18 transcripts (Section 7.2) | **18/18 pass** + 12 table-rule, limit and fallback cases |
 | Spec scenarios, fallback path, local and live | `scripts/run-scenarios.mjs` | **8/8 pass** (Sections 1, 1b) |
 | Typed-note scenarios, **real Gemini**, live | `--require-ai` | **5/5 real answers pass.** Allergy, Unclear table and Summary: no real answer yet (Section 3 + 7.4) |
-| **Table visits, real Gemini, live** | `--visits --require-ai` | **0 real answers: 3 attempts, all Google 504.** Not verified (Section 7.4) |
+| **Table visits, real Gemini, live** | `--visits --require-ai` | `gemini-3.8-flash`: 3 attempts, all 504. **`gemini-3.5-flash-lite`: 1 attempt, AI, 5.1 s, PASS** (Section 7.6) |
 | Real AI: Claude | with `ANTHROPIC_API_KEY` | **Not run** (no key) |
 | UI, headless Chrome, 375 + 1440 px | DevTools-protocol script with a scripted speech recognizer (Section 7.3) | **59/59 local, 31/31 live** (AI steps skipped live to save quota) |
 
@@ -281,7 +281,8 @@ Every bug the tests caught during the build, in order. All are fixed, and each n
 | 4 | 18:12 | Visit: ranch vs blue cheese mismatch | 1 | Fallback: Google 504 at the 15 s budget |
 | 5 | 18:12 | Visit: long 3-minute visit | 1 | Fallback: Google 504 at the 15 s budget |
 | 6 | 18:16 | Visit: long 3-minute visit (after raising visits to 25 s) | 1 | Fallback: Google 504 at 25 s |
-| | | **Total** | **7 of 8** | At least 13 of today's 20 are left for the demo. |
+| 7 | 18:50 | Visit: long 3-minute visit, **`gemini-3.5-flash-lite`, MINIMAL thinking, shorter prompt** | 1 | **AI answered in 5.1 s. PASS** (7.6) |
+| | | **Total** | 7 on `gemini-3.8-flash`, 1 on `gemini-3.5-flash-lite` | The free-tier limit is per model, so the demo now draws on flash-lite's own daily allowance. |
 
 Raw output: `docs/test-output/gemini-live-run4.json` (rows 1–3) and `docs/test-output/gemini-live-visits*.json` (rows 4–6). Causes come from the Vercel function logs.
 
@@ -391,4 +392,36 @@ node scripts/run-scenarios.mjs https://waiterly.vercel.app --visits --parse-only
 | 17 | UI script | Two quick taps on the verification card could act on **stale state**, so the second undid the first | The card uses functional state updates |
 | 18 | UI script | Card visit + a different spoken table asked the same question **once per task** | One answer now resolves every task with the same question (`resolveConflict`) |
 | 19 | Live fallback output | The fallback turned visit small talk ("hi folks welcome to Juniper") into a task, via the typed-note free-text rule | That rule is off for visits, with a test |
+
+### 7.6 Free-tier tuning: flash-lite, minimal thinking, shorter prompt (2026-11-26)
+
+**Models this key can use** (Google ListModels via `/api/health?models=1`, a metadata call with no generation):
+- Text flash-lite: `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite` (and `-preview`), `gemini-2.5-flash-lite`, `gemini-flash-lite-latest`.
+- Text flash: `gemini-3.8-flash`, `3.7-flash`, `3.6-flash`, `3.5-flash`, `2.5-flash`, `gemini-3-flash-preview`, `gemini-flash-latest`.
+- All of them have a 1,048,576-token input limit, a 65,536-token output limit and thinking support. Image, TTS and Omni variants were left out.
+- **ListModels doesn't report free-tier rate limits.** The only limit seen so far is `gemini-3.8-flash` at 20 requests a day, from its 429 error.
+
+**Changes:**
+- `GEMINI_MODEL=gemini-3.5-flash-lite` set in Vercel, so the model can change with no code change.
+- MINIMAL thinking for 3.x flash-lite. A `GEMINI_THINKING` override was added, plus one retry on LOW if Google rejects the level.
+- The visit system prompt went from 5,239 to **4,258 characters** (−19%). All 7 visit rules and all 8 note rules are kept. The category and `table_source` lists the schema already enforces were removed, and "leave note and changes empty when there is nothing to say" was added to shorten the answer.
+
+**One real-AI visit test** (budget: at most 3 real requests; **1 used**):
+
+```
+=== PASS  Visit: long 3-minute visit with several changes  [HTTP 200, 5146 ms, ai]
+  task  T4  [card/ok]  normal Bring 1 Coke  changes: Iced tea - Coke
+  task  T4  [card/ok]  normal Bring 3 waters  changes: 2 - 3 waters
+  task  T4  [card/ok]  normal Bring wings with blue cheese
+  task  T4  [card/ok]  normal Bring crayons
+  task  T4  [card/ok]  high   Check with kitchen about peanuts in satay sauce  [allergy]
+  task  T4  [card/ok]  high   Bring check with food
+  changed  Ranch removed
+```
+
+- **The AI answered (`source: "ai"`) in 5.1 s end to end.** `gemini-3.8-flash` hit 504 at 15 s and at 25 s on the same transcript.
+- All final-state checks pass: Coke replaced the iced tea, 2 → 3 waters, ranch removed, crayons, the allergy (forced high with "Confirm with kitchen before serving"), the late check high, and everything on Table 4. Raw JSON: `docs/test-output/gemini-live-visit-flashlite.json`.
+- **Bug found:** "Iced tea -> Coke" was shown as "Iced tea - Coke", because the sanitizer strips `<` and `>` as markup. Fixed: arrows become "→" before sanitizing, with a test.
+- Not verifiable from the logs: whether Google accepted MINIMAL or the server fell back to LOW. A rejected level isn't logged when the retry succeeds.
+- Other visit transcripts still have only mocked results on the real model.
 

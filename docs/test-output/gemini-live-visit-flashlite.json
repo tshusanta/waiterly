@@ -1,0 +1,125 @@
+{
+  "base": "https://waiterly.vercel.app",
+  "ranAt": "2026-11-26T18:45:14.987Z",
+  "requireAi": true,
+  "aiCalls": 1,
+  "passed": 1,
+  "total": 1,
+  "sources": [
+    "ai"
+  ],
+  "results": [
+    {
+      "name": "Visit: long 3-minute visit with several changes",
+      "expected": "Final state: 1 Coke, 3 waters, wings blue cheese only, crayons, peanut allergy (kitchen), check. No iced tea, no ranch.",
+      "status": 200,
+      "ms": 5146,
+      "pass": true,
+      "fails": [],
+      "body": {
+        "source": "ai",
+        "tasks": [
+          {
+            "tableOptions": [],
+            "heardTable": null,
+            "tableMessage": "",
+            "table": 4,
+            "tableSource": "card",
+            "tableStatus": "ok",
+            "text": "Bring 1 Coke",
+            "category": "drinks",
+            "priority": "normal",
+            "flags": [],
+            "note": "",
+            "changes": [
+              "Iced tea - Coke"
+            ]
+          },
+          {
+            "tableOptions": [],
+            "heardTable": null,
+            "tableMessage": "",
+            "table": 4,
+            "tableSource": "card",
+            "tableStatus": "ok",
+            "text": "Bring 3 waters",
+            "category": "drinks",
+            "priority": "normal",
+            "flags": [],
+            "note": "",
+            "changes": [
+              "2 - 3 waters"
+            ]
+          },
+          {
+            "tableOptions": [],
+            "heardTable": null,
+            "tableMessage": "",
+            "table": 4,
+            "tableSource": "card",
+            "tableStatus": "ok",
+            "text": "Bring wings with blue cheese",
+            "category": "food",
+            "priority": "normal",
+            "flags": [],
+            "note": "",
+            "changes": []
+          },
+          {
+            "tableOptions": [],
+            "heardTable": null,
+            "tableMessage": "",
+            "table": 4,
+            "tableSource": "card",
+            "tableStatus": "ok",
+            "text": "Bring crayons",
+            "category": "supplies",
+            "priority": "normal",
+            "flags": [],
+            "note": "",
+            "changes": []
+          },
+          {
+            "tableOptions": [],
+            "heardTable": null,
+            "tableMessage": "",
+            "table": 4,
+            "tableSource": "card",
+            "tableStatus": "ok",
+            "text": "Check with kitchen about peanuts in satay sauce",
+            "category": "food",
+            "priority": "high",
+            "flags": [
+              "allergy"
+            ],
+            "note": "Confirm with kitchen before serving",
+            "changes": []
+          },
+          {
+            "tableOptions": [],
+            "heardTable": null,
+            "tableMessage": "",
+            "table": 4,
+            "tableSource": "card",
+            "tableStatus": "ok",
+            "text": "Bring check with food",
+            "category": "check",
+            "priority": "high",
+            "flags": [],
+            "note": "",
+            "changes": []
+          }
+        ],
+        "changes": [
+          "Ranch removed"
+        ],
+        "mismatches": [],
+        "tableCorrections": [],
+        "needs_clarification": [],
+        "rejected": [],
+        "skipped": [],
+        "trimmed": false
+      }
+    }
+  ]
+}
