@@ -4,7 +4,6 @@ dist/
 *.log
 .DS_Store
 
-# Secrets
-.env
-.env.*
+# Secrets: every .env file, including .env.local (Vercel CLI token), except the template.
+.env*
 !.env.example

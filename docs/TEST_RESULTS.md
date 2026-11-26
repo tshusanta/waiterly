@@ -6,7 +6,7 @@
 |---|---|---|
 | Unit + integration tests | `npm test` (Vitest, 7 files) | **82/82 pass** |
 | Spec scenarios, fallback path, local | `scripts/run-scenarios.mjs` against the dev server | **8/8 pass** |
-| Spec scenarios, fallback path, live URL | same script against the Vercel URL | Phase 7, filled in after deploy |
+| Spec scenarios, fallback path, **live URL** | same script against https://waiterly.vercel.app | **8/8 pass** (Section 1b) |
 | Spec scenarios, real AI: Claude | same script, with `ANTHROPIC_API_KEY` | **PENDING** (no key) |
 | Spec scenarios, real AI: Gemini | same script, with only `GEMINI_API_KEY` | **PENDING** (no key) |
 | No-key behaviour (never a 500, "needs an API key" message) | `tests/api.test.ts` | Pass |
@@ -93,6 +93,42 @@ Every AI-path response below also carried this notice: *"AI is not configured on
 - In the browser, the counter turns red and the **Organize** button is disabled past 600 characters.
 
 > The spec lists "Empty or too long" as one row. They're tested here as two separate cases.
+
+---
+
+## 1b. Live URL: https://waiterly.vercel.app (fallback path)
+
+Run on 2026-11-25 against the production deployment, with no API key set:
+`node scripts/run-scenarios.mjs https://waiterly.vercel.app --json docs/test-output/fallback-live.json`
+
+**Result: 8/8 PASS.** The output is identical to the local run in Section 1. Each response carried the notice *"AI is not configured on this server (no API key). Used the keyword parser instead. Double-check each task."* Raw responses: [`test-output/fallback-live.json`](test-output/fallback-live.json).
+
+| Scenario | HTTP | Time | Result |
+|---|---|---|---|
+| Dinner rush | 200 | 278 ms | PASS |
+| Allergy | 200 | 102 ms | PASS |
+| Unclear table | 200 | 99 ms | PASS |
+| Sold-out item | 200 | 61 ms | PASS |
+| Complaint | 200 | 80 ms | PASS |
+| Prompt injection | 200 | 71 ms | PASS |
+| Empty note | 400 | 56 ms | PASS |
+| Too long (700 chars) | 400 | 58 ms | PASS |
+
+**Other live checks**
+
+| Check | Result |
+|---|---|
+| `GET /` with no cookies or login | 200, `<title>Waiterly</title>`. **Public, no sign-in.** |
+| `GET /api/health` | 200 `{"ok":true,"aiConfigured":false,"provider":"none",...}`, no key exposed |
+| `POST /api/plan` (allergy + 2 drinks) | 200, `reason: not_configured`. Trip 1 Kitchen pass: Table 4 (allergy first). Trip 2 Drink station: Tables 1, 4 (grouped). |
+| `POST /api/summary` | 200, notice **"AI summary needs an API key. Showing a summary written from the shift stats instead."**, honest stats summary |
+| `POST /api/summary` with bad JSON or `stats: null` | 400 with a message (not 500) |
+| Unknown route `/api/nope` | 404 |
+| Browser, desktop: Sold-out chip → Organize → Add → Plan trips → Write summary | All work. FALLBACK PARSED and RULE-BASED PLAN badges, "AI summary needs an API key" callout, 86'd logged. **0 console errors.** |
+| Browser, 375 px (iframe on the live site): Service, Floor stats, How it works, Settings | `scrollWidth` 360 on every view, no horizontal scroll, FALLBACK MODE badge on each, no main tap target under 44 px |
+| Deployment-specific URL (`waiterly-<hash>-….vercel.app`) | 302 to a Vercel login (Vercel's default Deployment Protection). **Share only `https://waiterly.vercel.app`**, which is public. |
+
+*Testing note:* the browser checks used a fresh tab with no prior site data. The "no sign-in" requirement was verified with plain HTTP requests that send no cookies or credentials. The automation tool can't open a true incognito window, so the student should still do a final click-through in a private window before submitting.
 
 ---
 

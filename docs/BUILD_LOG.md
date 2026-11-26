@@ -315,6 +315,35 @@ A later run found that "table 1 needs two waters" read the quantity as 1, becaus
 
 ---
 
-## Phase 7: Deploy
+## 2026-11-25: Phase 7, Deploy (done, in FALLBACK MODE)
 
-*(in progress)*
+**Live URL: https://waiterly.vercel.app**. Vercel project `waiterly`, team `sushant-52c2`. Code at https://github.com/tshusanta/waiterly.
+
+| Step | Who | Notes |
+|---|---|---|
+| Install Git and Node | Agent (winget, Phase 0) | — |
+| `git push -u origin main` | **Student** | The agent's shell and Claude Code's `!` shell are non-interactive, so neither can show GitHub's sign-in. The student pushed from their own PowerShell window, signing in through the browser. |
+| `vercel login` | **Student** | The first attempt didn't finish (no auth token was saved). The student logged in again from their own terminal as `tshusanta`. |
+| `vercel link --yes --project waiterly` | Agent | Created and linked the project. The CLI also wrote `.env.local` (a Vercel OIDC token) and appended `.env*` to `.gitignore` **after** `!.env.example`, which would have started ignoring the template. Rewrote `.gitignore` so `.env*` comes first and `!.env.example` last. Verified with `git check-ignore` that `.env`, `.env.local` and `.vercel` are ignored and `.env.example` isn't. The agent didn't open `.env.local`. |
+| `vercel --prod --yes` | Agent | Deployed to production. No environment variables are set, so it runs in FALLBACK MODE by design. |
+| GitHub ↔ Vercel connection | Agent tried, **needs the student** | `vercel link` and `vercel git connect` both returned "Failed to connect tshusanta/waiterly". The Vercel GitHub App needs repo access, which must be granted in the browser. Steps are in `docs/ADD_API_KEY_LATER.md` → "Connecting GitHub for automatic deploys". Until then, deploys run with `npx vercel --prod`. |
+
+**How it was tested (live)**
+- **No sign-in:** `GET /` returns 200 with no cookies or credentials. The deployment-specific URL returns 302 to a Vercel login (Deployment Protection), so only the production domain is shared.
+- **Scenarios:** all 8 pass on the live URL (`docs/test-output/fallback-live.json`), at 56–278 ms each.
+- **Endpoints:** `/api/health`, `/api/plan` and `/api/summary` all return 200 with `reason: not_configured`. The summary has the exact text "AI summary needs an API key…". Bad input gets 400, an unknown route gets 404, and nothing returns 500.
+- **Phase 2 risk closed:** server code importing `../shared/*.js` and `../server/*.js` loads correctly on Vercel's Node runtime.
+- **Browser, desktop:** the full flow works (scenario → review → add → plan → summary), with 0 console errors.
+- **Browser, 375 px:** no horizontal scroll on any view, the badge is visible on each, and tap targets are at least 44 px.
+- **Not done by the agent:** a click-through in a true incognito window (the automation tool can't open one), and any test with a real AI key (none exists).
+
+**Remaining before submission (student)**
+1. Connect GitHub in the Vercel dashboard (optional but recommended).
+2. Do a final private-window click-through on desktop and phone.
+3. If a key is obtained: follow ADD_API_KEY_LATER.md and replace the PENDING rows in TEST_RESULTS Section 3 with real output.
+
+---
+
+## Phase 8: Documentation
+
+*(next)*

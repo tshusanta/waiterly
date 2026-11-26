@@ -1,5 +1,7 @@
 # Adding an AI API key later
 
+**Live site:** https://waiterly.vercel.app · **Vercel project:** `waiterly` (team `sushant-52c2`) · **Repo:** https://github.com/tshusanta/waiterly
+
 Waiterly is deployed and fully usable **without** a key. It runs in **FALLBACK MODE**: a keyword parser, a rule-based trip planner and a summary written from the stats. Adding a key switches on real AI **with no code change**. You set one environment variable in Vercel and redeploy.
 
 **Which key is used:**
@@ -63,11 +65,13 @@ The key is now stored, but **the running site doesn't see it yet**. Vercel only 
 
 **Alternative (terminal):** from the project folder, run `npx vercel --prod`. It also creates a new production deployment that picks up the key.
 
+**Alternative (git):** once the project is connected to GitHub (see the last section), any `git push` to `main` redeploys too.
+
 ---
 
 ## Step 4: Check that it worked
 
-1. Open **`https://<your-site>/api/health`** in a browser. You should see:
+1. Open **https://waiterly.vercel.app/api/health** in a browser. You should see:
    ```json
    {"ok":true,"aiConfigured":true,"provider":"anthropic", ...}
    ```
@@ -83,7 +87,7 @@ The key is now stored, but **the running site doesn't see it yet**. Vercel only 
 From the project folder on your computer:
 
 ```bash
-node scripts/run-scenarios.mjs https://<your-site> --json docs/test-output/ai-live.json
+node scripts/run-scenarios.mjs https://waiterly.vercel.app --json docs/test-output/ai-live.json
 ```
 
 It prints PASS/FAIL for every spec scenario against the real model. Paste the output into **Section 3** of `docs/TEST_RESULTS.md`, replacing the PENDING rows, then commit and push. Report any FAIL honestly. That section exists to show what the AI actually did.
@@ -97,3 +101,18 @@ To test locally first, put the same line in a file named `.env` in the project f
 - **Change:** Vercel → project → **Settings → Environment Variables** → **⋯** next to the variable → **Edit** → paste the new value → **Save**, then redeploy (Step 3).
 - **Remove (back to FALLBACK MODE):** same menu → **Remove**, then redeploy. The app keeps working with no AI.
 - **Rotate after a leak:** delete the key in the provider's console *first*, so the old key stops working at once, then add a new one as above.
+
+---
+
+## Connecting GitHub for automatic deploys
+
+The CLI couldn't connect the repo (`vercel git connect` failed). That usually means Vercel's GitHub App doesn't have access to the repo yet. One-time setup:
+
+1. Go to https://vercel.com, open the **waiterly** project, and click **Settings**.
+2. In the left sidebar, click **Git**.
+3. Under **Connected Git Repository**, click **GitHub** (or **Connect Git Repository**).
+4. If GitHub asks you to install or configure **Vercel**: choose your account `tshusanta`, select **Only select repositories**, pick **waiterly**, and click **Install** (or **Save**).
+5. Back in Vercel, choose **tshusanta/waiterly** and click **Connect**.
+6. Check it worked: the Git page now shows `tshusanta/waiterly` with production branch `main`. From then on, every push to `main` deploys to https://waiterly.vercel.app.
+
+> Share only **https://waiterly.vercel.app**. Deployment-specific URLs such as `waiterly-abc123-….vercel.app` sit behind Vercel's login (Deployment Protection) and won't open for the instructor.
