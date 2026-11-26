@@ -1,8 +1,7 @@
-// GET /api/health: Phase 0 smoke test for the serverless folder.
-// Reports whether the key is configured, never the key itself.
+// GET /api/health: tells the UI whether AI is configured. Never returns the key.
+import { aiConfigured } from '../server/ai.js'
+import { json } from '../server/http.js'
+
 export function GET(): Response {
-  return Response.json({
-    ok: true,
-    aiConfigured: Boolean(process.env.ANTHROPIC_API_KEY),
-  })
+  return json({ ok: true, aiConfigured: aiConfigured() })
 }

@@ -69,6 +69,40 @@ A chronological record of each phase: what was built, decisions made, problems h
 
 ---
 
-## Phase 2: AI parsing endpoint
+## 2026-11-25: Phase 2, AI parsing endpoint (built; live AI test pending the API key)
+
+| Item | Who | Notes |
+|---|---|---|
+| `server/prompt.ts`: system prompt + JSON schema | Agent, rules from the student's spec | All 8 spec rules word for word, plus restaurant context and 2 few-shot examples. The examples are deliberately *different* from the graded test scenarios, so the scenarios stay an honest test. Section tables and open tasks go in the user message, and the note sits inside `<note>` tags as data. |
+| `server/ai.ts`: Claude call | Agent | `claude-haiku-5-5`, **structured outputs** (`output_config.format` json_schema) so the reply must match the schema. `effort: low` for speed, 15 s timeout, no retries (the fallback is faster than a retry). Any stop reason other than `end_turn` is treated as a failure. |
+| `shared/parse/validate.ts`: server-side validation | Agent | Runs on AI output *and* fallback output. Whitelists category, priority and flags. Strips control characters and `<>`. Caps text at 8 words / 60 chars and at 15 tasks. Rules enforced in code, not just in the prompt: the table must be in the section (otherwise rejected); the table must actually appear in the note (otherwise a clarification, which catches invented tables); allergy means flag + high + kitchen note, with "is safe" claims rewritten; a sold-out item becomes "Tell guest X is 86'd"; checks and complaints are high; payment or comp actions are rejected; near-duplicates of open tasks are skipped. |
+| `shared/parse/fallback.ts`: keyword parser | Agent | Splits the note into clauses and carries the table forward, except when a clause introduces a new party ("the guy by the window"). Leading numbers count as tables only when followed by a verb ("4 wants" yes, "two waters" no). Unknown requests come back as questions, never guesses. |
+| `api/parse.ts` | Agent | Input checks: empty or over 600 chars gets a friendly 400, no AI call. Per-IP limit of 20/min returns 429 with Retry-After. JSON body capped at 32 KB. On any AI failure it falls back and returns `source: "fallback"` with a plain-language `notice`. |
+| `vite-plugin-api.ts` | Agent | Dev-only middleware that runs the same `api/*.ts` handlers locally, so no Vercel login is needed to test. It loads `.env` server-side only (no `VITE_` prefix, so the key can't be bundled). |
+| `scripts/run-scenarios.mjs` | Agent | Sends all spec scenarios to `/api/parse` and prints or saves the results. It gets reused in Phase 6 and on the live URL in Phase 7. |
+
+**Decisions**
+- Server-side imports use `.js` extensions (`../shared/types.js`) so the Vercel Node ESM runtime can resolve them. Risk to verify in Phase 7.
+- Rate limiting is in-memory per serverless instance. That's fine for a demo but not a global limit; this goes in RISKS_AND_LIMITATIONS.
+
+**Problems and fixes:** the first test run had 4 failing fallback cases, all fixed:
+1. "the check, split three ways" was cut at the comma. Fix: rejoin ", split" before splitting.
+2. "lemon for her water" also produced a water refill. Fix: the "for water" target is ignored when matching items.
+3. "steak is cold and they want a manager" became 2 complaints. Fix: complaints for the same table merge.
+4. "Bring ranch" wasn't seen as a duplicate of "Bring ranch on the side". Fix: subset match in dedupe.
+
+A later run found that "table 1 needs two waters" read the quantity as 1, because the table number matched first. Fix: use the number attached to the item.
+
+**How it was tested**
+- `npm test` passes 35/35. That's 15 state tests plus 20 parser tests: all 6 AI scenarios through the fallback, edge cases, and validator rules such as an out-of-section table, an invented table, safety claims, a sold-out order, payment actions, enum whitelisting, caps and markup stripping.
+- The type check is clean.
+- End to end with `run-scenarios.mjs` against the dev server: all 8 scenarios match the expected results on the fallback path, and empty/too-long notes return 400 with friendly messages.
+- The rate limit returns 429 after exactly 20 requests per minute.
+
+**Pending:** the real AI path is untested because there's no `ANTHROPIC_API_KEY` in `.env` yet.
+
+---
+
+## Phase 3: Server view
 
 *(not started)*
