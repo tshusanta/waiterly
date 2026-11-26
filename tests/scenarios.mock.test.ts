@@ -128,7 +128,7 @@ beforeEach(() => {
 
 describe('spec scenarios with mocked Gemini replies (same checks as the live runner)', () => {
   it('health reports Gemini as the configured provider', async () => {
-    expect(await health().json()).toMatchObject({ aiConfigured: true, provider: 'gemini', models: { parse: 'gemini-3.8-flash' } })
+    expect(await (await health()).json()).toMatchObject({ aiConfigured: true, provider: 'gemini', models: { parse: 'gemini-3.8-flash' } })
   })
 
   it('every AI scenario has a mocked reply', () => {
@@ -222,6 +222,21 @@ describe('mocked Gemini errors seen live on 2026-11-26', () => {
     const body = await (await send('/api/parse', { note, ...SECTION })).json()
     expect(body.source).toBe('ai')
     expect(google.requests).toHaveLength(2) // a retry costs a second free-tier request
+  })
+
+  it('flash-lite: asks for MINIMAL thinking; if Google rejects it (400), retries once on LOW and remembers', async () => {
+    vi.stubEnv('GEMINI_MODEL', 'gemini-3.5-flash-lite')
+    try {
+      google.replies.push({ status: 400, message: 'Thinking level MINIMAL is not supported for this model' }, parseReply([task(4, 'Bring ranch', 'condiments')]), parseReply([task(4, 'Bring ranch', 'condiments')]))
+      const body = await (await send('/api/parse', { note, ...SECTION })).json()
+      expect(body.source).toBe('ai')
+      expect(google.requests.map((r) => (r.config.thinkingConfig as { thinkingLevel: string }).thinkingLevel)).toEqual(['MINIMAL', 'LOW'])
+      await send('/api/parse', { note, ...SECTION })
+      expect((google.requests[2].config.thinkingConfig as { thinkingLevel: string }).thinkingLevel).toBe('LOW') // no second 400
+      expect(google.requests[2].model).toBe('gemini-3.5-flash-lite')
+    } finally {
+      vi.stubEnv('GEMINI_MODEL', '')
+    }
   })
 
   it('daily quota 429: no retry (it would waste quota), keyword fallback with a notice', async () => {

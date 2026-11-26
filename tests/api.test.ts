@@ -229,7 +229,7 @@ describe('POST /api/summary', () => {
 describe('GET /api/health', () => {
   it('reports configuration without exposing a key', async () => {
     fake.configured = false
-    const body = await health().json()
+    const body = await (await health()).json()
     expect(body).toMatchObject({ ok: true, aiConfigured: false, provider: 'fake' })
     expect(JSON.stringify(body)).not.toMatch(/sk-|key=/i)
   })

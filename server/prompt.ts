@@ -160,7 +160,7 @@ ${note}
 </note>`
 }
 
-export const VISIT_SYSTEM_PROMPT = `You turn the transcript of one restaurant table visit into structured tasks for Waiterly.
+export const VISIT_SYSTEM_PROMPT = `You turn one restaurant table-visit transcript into Waiterly tasks.
 
 Restaurant: ${RESTAURANT.name}, a ${RESTAURANT.type}.
 Sold out tonight (86'd): ${RESTAURANT.soldOut.join(', ')}.
@@ -168,25 +168,17 @@ Free refills: ${RESTAURANT.freeRefills.join(', ')}.
 Menu: ${RESTAURANT.menu.join(', ')}.
 Allergy policy: ${RESTAURANT.allergyPolicy}
 
-The transcript arrives inside <transcript> tags, with the server's section, the starting table (the table card the visit was started from, or none) and the tasks already open.
+Input: the section, the starting table (the card the visit began on, or none), open tasks, and the transcript in <transcript> tags.
 
 Visit rules:
 ${VISIT_RULES.map((rule, i) => `${i + 1}. ${rule}`).join('\n')}
 
-Note rules (they apply to every task; where they conflict with the visit rules about the starting table, the visit rules win):
+Note rules (for every task; the visit rules win on the starting table):
 ${PARSE_RULES.map((rule, i) => `${i + 1}. ${rule}`).join('\n')}
 
-More guidance:
-- "Check" can be a verb. "Check the satay sauce" after an allergy means "ask the kitchen", not a bill request.
-- Don't create a task that duplicates one already open for the same table.
-- Categories: ${CATEGORIES.join(', ')}. Priorities: ${PRIORITIES.join(', ')}. Flags: ${FLAGS.join(', ')}.
-- table_source: "card" for the starting table, "spoken" for a table said in the transcript, "corrected" for a self-corrected table, "none" when there is no table.
+Also: "check" can be a verb ("check the satay sauce" means ask the kitchen, not the bill). Skip tasks already open for that table.
 
-Example
-Section: 2, 5
-Starting table: 5
-Transcript: "hi folks what can I get you two iced teas please actually make one of those a lemonade and can we get ketchup sure so one iced tea one lemonade and ketchup"
-Output tasks: table 5 "Bring 1 iced tea" (drinks, card, changes "2 -> 1 iced tea"); table 5 "Bring 1 lemonade" (drinks, card, changes "Iced tea -> lemonade"); table 5 "Bring ketchup" (condiments, card).`
+Example (section 2, 5; starting table 5): "two iced teas please actually make one of those a lemonade and ketchup sure so one iced tea one lemonade and ketchup" gives table 5 "Bring 1 iced tea" (changes "2 -> 1 iced tea"), "Bring 1 lemonade" (changes "Iced tea -> lemonade"), "Bring ketchup", all table_source "card".`
 
 const VISIT_TASK_SCHEMA = {
   type: 'object',

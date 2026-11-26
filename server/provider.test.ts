@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { getProvider } from './provider'
 import { AiNotConfiguredError } from './providers/types'
 import { ApiError } from '@google/genai'
-import { geminiModel, isRetryable, thinkingFor } from './providers/gemini'
+import { geminiModel, isRetryable, isThinkingRejected, thinkingFor } from './providers/gemini'
 
 describe('getProvider: chosen by environment variable', () => {
   it('uses Claude when ANTHROPIC_API_KEY is set (even if Gemini is too)', () => {
@@ -29,8 +29,19 @@ describe('getProvider: chosen by environment variable', () => {
   })
 
   it('sends the right thinking setting for the model generation', () => {
-    expect(thinkingFor('gemini-2.5-flash')).toEqual({ thinkingBudget: 0 })
-    expect(thinkingFor('gemini-3.8-flash')).toEqual({ thinkingLevel: 'LOW' })
+    expect(thinkingFor('gemini-2.5-flash', {})).toEqual({ thinkingBudget: 0 })
+    expect(thinkingFor('gemini-3.8-flash', {})).toEqual({ thinkingLevel: 'LOW' })
+    expect(thinkingFor('gemini-3.5-flash-lite', {})).toEqual({ thinkingLevel: 'MINIMAL' })
+    expect(thinkingFor('gemini-2.5-flash-lite', {})).toEqual({ thinkingBudget: 0 })
+  })
+
+  it('GEMINI_THINKING overrides the level without a code change; a rejected level is detected', () => {
+    expect(thinkingFor('gemini-3.8-flash', { GEMINI_THINKING: 'minimal' })).toEqual({ thinkingLevel: 'MINIMAL' })
+    expect(thinkingFor('gemini-3.5-flash-lite', { GEMINI_THINKING: 'low' })).toEqual({ thinkingLevel: 'LOW' })
+    expect(thinkingFor('gemini-3.5-flash-lite', { GEMINI_THINKING: 'off' })).toEqual({ thinkingLevel: 'MINIMAL' })
+    expect(thinkingFor('gemini-2.5-flash-lite', { GEMINI_THINKING: 'off' })).toEqual({ thinkingBudget: 0 })
+    expect(isThinkingRejected(new ApiError({ status: 400, message: 'Thinking level MINIMAL is not supported for this model' }))).toBe(true)
+    expect(isThinkingRejected(new ApiError({ status: 400, message: 'Invalid schema' }))).toBe(false)
   })
 
   it('uses no AI when neither is set, or the value is blank', () => {

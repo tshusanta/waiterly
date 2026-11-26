@@ -28,11 +28,36 @@ export function geminiModel(env: Record<string, string | undefined> = process.en
   return env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL
 }
 
-/** Keep thinking short for these small extraction tasks. 2.x models use a token budget, 3.x use a level. */
-export function thinkingFor(model: string): ThinkingConfig {
-  if (/^gemini-2\./.test(model)) return { thinkingBudget: 0 }
-  // LOW is the lowest level gemini-3.8-flash accepts: MINIMAL returned 400 "not supported for this model" (2026-11-26).
-  return { thinkingLevel: ThinkingLevel.LOW }
+const LEVELS: Record<string, ThinkingLevel> = {
+  minimal: ThinkingLevel.MINIMAL,
+  low: ThinkingLevel.LOW,
+  medium: ThinkingLevel.MEDIUM,
+  high: ThinkingLevel.HIGH,
+}
+/** Models that rejected MINIMAL (400) during this instance's lifetime, so we don't pay for that twice. */
+const noMinimal = new Set<string>()
+
+/**
+ * As little thinking as each model allows. These are small extraction tasks, and
+ * thinking is the main source of latency.
+ *  - 2.x: thinkingBudget 0 (thinking off)
+ *  - 3.x flash-lite: MINIMAL
+ *  - other 3.x: LOW (gemini-3.8-flash returned 400 "MINIMAL not supported", 2026-11-26)
+ * GEMINI_THINKING (off | minimal | low | medium | high) overrides it without a code change.
+ * 3.x models can't turn thinking fully off, so "off" means MINIMAL there.
+ */
+export function thinkingFor(model: string, env: Record<string, string | undefined> = process.env): ThinkingConfig {
+  const wanted = env.GEMINI_THINKING?.trim().toLowerCase()
+  if (/^gemini-2\./.test(model)) {
+    return wanted && wanted !== 'off' && wanted !== 'minimal' ? { thinkingBudget: -1 } : { thinkingBudget: 0 }
+  }
+  const level = wanted === 'off' ? 'minimal' : wanted && wanted in LEVELS ? wanted : /flash-lite/.test(model) ? 'minimal' : 'low'
+  return { thinkingLevel: level === 'minimal' && noMinimal.has(model) ? ThinkingLevel.LOW : LEVELS[level] }
+}
+
+/** A 400 saying the thinking level isn't supported. We retry once on LOW. */
+export function isThinkingRejected(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 400 && /thinking/i.test(err.message)
 }
 
 let client: GoogleGenAI | null = null
@@ -87,9 +112,14 @@ async function structuredCall(system: string, user: string, schema: object, budg
   try {
     response = await attempt()
   } catch (err) {
-    if (!isRetryable(err) || retryTimeoutMs(deadline - Date.now()) === null) throw err
-    await new Promise((r) => setTimeout(r, RETRY_DELAY_MS))
-    response = await attempt()
+    if (isThinkingRejected(err) && !noMinimal.has(model) && retryTimeoutMs(deadline - Date.now()) !== null) {
+      noMinimal.add(model) // a 400 comes back fast, so the LOW retry still fits the budget
+      response = await attempt()
+    } else {
+      if (!isRetryable(err) || retryTimeoutMs(deadline - Date.now()) === null) throw err
+      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS))
+      response = await attempt()
+    }
   }
   const finish = response.candidates?.[0]?.finishReason
   if (finish && finish !== 'STOP') throw new AiUnavailableError(`Model stopped early: ${finish}`)
@@ -112,3 +142,46 @@ export const geminiProvider: AiProvider = {
   planTrips: ({ tasks }) => structuredCall(PLAN_SYSTEM_PROMPT, buildPlanUserMessage(tasks), PLAN_SCHEMA),
   summarizeShift: ({ stats }) => structuredCall(SUMMARY_SYSTEM_PROMPT, buildSummaryUserMessage(stats), SUMMARY_SCHEMA),
 }
+
+export interface GeminiModelInfo {
+  id: string
+  displayName: string
+  inputTokenLimit: number | null
+  outputTokenLimit: number | null
+  thinking: boolean | null
+  methods: string[]
+}
+
+/**
+ * Google's ListModels for this key, flash and flash-lite only. A metadata call:
+ * it doesn't generate anything or use the generateContent quota. Google doesn't
+ * report free-tier rate limits here (those are on the AI Studio rate-limit page).
+ */
+export async function listGeminiModels(): Promise<GeminiModelInfo[]> {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) throw new AiNotConfiguredError()
+  const out: GeminiModelInfo[] = []
+  let pageToken = ''
+  for (let page = 0; page < 5; page++) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models?pageSize=200${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`
+    const res = await fetch(url, { headers: { 'x-goog-api-key': apiKey }, signal: AbortSignal.timeout(8_000) })
+    if (!res.ok) throw new AiUnavailableError(`ListModels failed: HTTP ${res.status}`)
+    const body = (await res.json()) as { models?: Record<string, unknown>[]; nextPageToken?: string }
+    for (const m of body.models ?? []) {
+      const id = String(m.name ?? '').replace(/^models\//, '')
+      if (!/flash/i.test(id)) continue
+      out.push({
+        id,
+        displayName: String(m.displayName ?? ''),
+        inputTokenLimit: typeof m.inputTokenLimit === 'number' ? m.inputTokenLimit : null,
+        outputTokenLimit: typeof m.outputTokenLimit === 'number' ? m.outputTokenLimit : null,
+        thinking: typeof m.thinking === 'boolean' ? m.thinking : null,
+        methods: Array.isArray(m.supportedGenerationMethods) ? (m.supportedGenerationMethods as string[]) : [],
+      })
+    }
+    if (!body.nextPageToken) break
+    pageToken = body.nextPageToken
+  }
+  return out.filter((m) => m.methods.includes('generateContent')).sort((a, b) => a.id.localeCompare(b.id))
+}
+
